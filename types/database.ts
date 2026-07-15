@@ -130,7 +130,7 @@ export interface ActivityLog {
   created_at: string;
 }
 
-export type WorkspaceRole = 'owner' | 'member';
+export type WorkspaceRole = 'owner' | 'member' | 'viewer';
 
 export interface WorkspaceMember {
   id: string;

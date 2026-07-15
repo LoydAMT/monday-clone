@@ -26,6 +26,7 @@ export function ItemDetailModal({
   onUndoableAction,
   attachmentCount = 0,
   onAttachmentCountChange,
+  canEdit = true,
 }: {
   item: Item;
   columns: Column[];
@@ -42,6 +43,7 @@ export function ItemDetailModal({
   onUndoableAction?: (message: string, onUndo: () => void) => void;
   attachmentCount?: number;
   onAttachmentCountChange?: (itemId: string, delta: number) => void;
+  canEdit?: boolean;
 }) {
   const [title, setTitle] = useState(item.title);
   const statusColumn = columns.find((c) => c.type === 'status');
@@ -61,25 +63,29 @@ export function ItemDetailModal({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={() => title.trim() && onTitleChange(item.id, title.trim())}
+          readOnly={!canEdit}
           className="mb-4 w-full rounded px-1 -mx-1 text-lg font-semibold text-gray-900 outline-none hover:bg-gray-50 focus:bg-gray-50"
         />
 
         <div className="mb-5 space-y-1">
-          {columns.map((column) => (
-            <div key={column.id} className="flex items-center gap-3 rounded px-1 py-1 hover:bg-gray-50">
-              <span className="w-24 shrink-0 text-xs font-medium text-gray-500">{column.name}</span>
-              <div className="h-8 flex-1">
-                <Cell
-                  column={column}
-                  cellValue={getCellValue(column, item)}
-                  onChange={(value) => onCellChange(item.id, column.id, value)}
-                  onOptionsChange={(options) => onOptionsChange(column.id, options)}
-                  members={members}
-                  attachmentCount={attachmentCount}
-                />
+          {columns.map((column) => {
+            const readOnlyCell = !canEdit && column.type !== 'file';
+            return (
+              <div key={column.id} className="flex items-center gap-3 rounded px-1 py-1 hover:bg-gray-50">
+                <span className="w-24 shrink-0 text-xs font-medium text-gray-500">{column.name}</span>
+                <div className={`h-8 flex-1 ${readOnlyCell ? 'pointer-events-none opacity-60' : ''}`}>
+                  <Cell
+                    column={column}
+                    cellValue={getCellValue(column, item)}
+                    onChange={(value) => onCellChange(item.id, column.id, value)}
+                    onOptionsChange={(options) => onOptionsChange(column.id, options)}
+                    members={members}
+                    attachmentCount={attachmentCount}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mb-5">
@@ -89,6 +95,7 @@ export function ItemDetailModal({
             groupId={item.group_id}
             statusColumn={statusColumn}
             onUndoableAction={onUndoableAction}
+            canEdit={canEdit}
           />
         </div>
 
@@ -113,14 +120,16 @@ export function ItemDetailModal({
           />
         </div>
 
-        <div className="border-t border-gray-100 pt-3">
-          <button
-            onClick={() => onDeleteItem(item.id)}
-            className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600"
-          >
-            <Trash2 size={13} /> Delete item
-          </button>
-        </div>
+        {canEdit && (
+          <div className="border-t border-gray-100 pt-3">
+            <button
+              onClick={() => onDeleteItem(item.id)}
+              className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600"
+            >
+              <Trash2 size={13} /> Delete item
+            </button>
+          </div>
+        )}
       </div>
     </Modal>
   );

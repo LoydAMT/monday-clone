@@ -22,6 +22,7 @@ export function GroupSection({
   onAddItem,
   onOpenItem,
   onDeleteItem,
+  canEdit = true,
 }: {
   group: Group;
   columns: Column[];
@@ -36,6 +37,7 @@ export function GroupSection({
   onAddItem: (groupId: string) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  canEdit?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [name, setName] = useState(group.name);
@@ -52,6 +54,7 @@ export function GroupSection({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name !== group.name && onRenameGroup(group.id, name.trim())}
+          readOnly={!canEdit}
           className="rounded px-1 -mx-1 text-sm font-semibold outline-none hover:bg-gray-50 focus:bg-gray-50"
           style={{ color: group.color }}
         />
@@ -75,17 +78,20 @@ export function GroupSection({
                   onTitleChange={onTitleChange}
                   onOpenItem={onOpenItem}
                   onDeleteItem={onDeleteItem}
+                  canEdit={canEdit}
                 />
               ))}
             </SortableContext>
           </div>
 
-          <button
-            onClick={() => onAddItem(group.id)}
-            className="flex w-full items-center gap-1.5 border-t border-gray-100 px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-          >
-            <Plus size={13} /> Add item
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => onAddItem(group.id)}
+              className="flex w-full items-center gap-1.5 border-t border-gray-100 px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+            >
+              <Plus size={13} /> Add item
+            </button>
+          )}
 
           <GroupSummaryRow columns={columns} items={items} />
         </div>

@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import type { Board, Column, ColumnOptions, ColumnType, Group, Item, ItemCells, MemberProfile } from '@/types/database';
+import type { Board, Column, ColumnOptions, ColumnType, Group, Item, ItemCells, MemberProfile, WorkspaceRole } from '@/types/database';
 import type { BoardTemplate } from '@/lib/templates';
 import { createNotification } from '@/lib/notifications';
 
@@ -11,7 +11,12 @@ export async function logActivity(itemId: string, action: string, meta: Record<s
   await supabase.from('activity_log').insert({ item_id: itemId, actor_id: auth.user.id, action, meta });
 }
 
-export async function inviteMember(workspaceId: string, workspaceName: string, email: string): Promise<MemberProfile> {
+export async function inviteMember(
+  workspaceId: string,
+  workspaceName: string,
+  email: string,
+  role: Extract<WorkspaceRole, 'member' | 'viewer'> = 'member'
+): Promise<MemberProfile> {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('id, email')
@@ -22,16 +27,25 @@ export async function inviteMember(workspaceId: string, workspaceName: string, e
 
   const { error: memberError } = await supabase
     .from('workspace_members')
-    .insert({ workspace_id: workspaceId, user_id: profile.id, role: 'member' });
+    .insert({ workspace_id: workspaceId, user_id: profile.id, role });
   if (memberError) throw memberError;
 
   await createNotification(workspaceId, profile.id, 'invited_to_workspace', { workspace_name: workspaceName });
 
-  return { user_id: profile.id, email: profile.email, role: 'member' };
+  return { user_id: profile.id, email: profile.email, role };
 }
 
 export async function removeMember(workspaceId: string, userId: string) {
   const { error } = await supabase.from('workspace_members').delete().eq('workspace_id', workspaceId).eq('user_id', userId);
+  if (error) throw error;
+}
+
+export async function updateMemberRole(workspaceId: string, userId: string, role: WorkspaceRole) {
+  const { error } = await supabase
+    .from('workspace_members')
+    .update({ role })
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId);
   if (error) throw error;
 }
 

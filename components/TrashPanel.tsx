@@ -11,10 +11,12 @@ export function TrashPanel({
   groups,
   onClose,
   onRestore,
+  canEdit = true,
 }: {
   groups: Group[];
   onClose: () => void;
   onRestore: (item: Item) => void;
+  canEdit?: boolean;
 }) {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,20 +70,24 @@ export function TrashPanel({
                     Deleted {item.deleted_at ? new Date(item.deleted_at).toLocaleString() : ''}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleRestore(item)}
-                  className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
-                >
-                  <RotateCcw size={12} /> Restore
-                </button>
-                <button
-                  onClick={() => handleDeleteForever(item.id)}
-                  className={`flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs ${
-                    confirmingId === item.id ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500'
-                  }`}
-                >
-                  <Trash2 size={12} /> {confirmingId === item.id ? 'Confirm?' : 'Delete forever'}
-                </button>
+                {canEdit && (
+                  <>
+                    <button
+                      onClick={() => handleRestore(item)}
+                      className="flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
+                    >
+                      <RotateCcw size={12} /> Restore
+                    </button>
+                    <button
+                      onClick={() => handleDeleteForever(item.id)}
+                      className={`flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs ${
+                        confirmingId === item.id ? 'bg-red-50 text-red-600' : 'text-gray-400 hover:text-red-500'
+                      }`}
+                    >
+                      <Trash2 size={12} /> {confirmingId === item.id ? 'Confirm?' : 'Delete forever'}
+                    </button>
+                  </>
+                )}
               </div>
             ))}
           </div>

@@ -57,6 +57,7 @@ export function TableGrid({
   onDeleteItem,
   onRenameColumn,
   onDeleteColumn,
+  canEdit = true,
 }: {
   columns: Column[];
   groups: Group[];
@@ -78,12 +79,13 @@ export function TableGrid({
   onDeleteItem?: (itemId: string) => void;
   onRenameColumn?: (columnId: string, name: string) => void;
   onDeleteColumn?: (columnId: string) => void;
+  canEdit?: boolean;
 }) {
   const [activeItem, setActiveItem] = useState<Item | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const activeSensors = orderingLocked ? [] : sensors;
+  const activeSensors = orderingLocked || !canEdit ? [] : sensors;
 
   function toggleSort(columnId: string) {
     if (!onSortChange) return;
@@ -217,14 +219,16 @@ export function TableGrid({
                 {sort?.columnId === column.id &&
                   (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
               </button>
-              <ColumnHeaderMenu
-                column={column}
-                onRename={(name) => onRenameColumn?.(column.id, name)}
-                onDelete={() => onDeleteColumn?.(column.id)}
-              />
+              {canEdit && (
+                <ColumnHeaderMenu
+                  column={column}
+                  onRename={(name) => onRenameColumn?.(column.id, name)}
+                  onDelete={() => onDeleteColumn?.(column.id)}
+                />
+              )}
             </div>
           ))}
-          <AddColumnButton onAdd={onAddColumn} />
+          {canEdit ? <AddColumnButton onAdd={onAddColumn} /> : <div />}
         </div>
 
         <div className="mt-3">
@@ -244,16 +248,19 @@ export function TableGrid({
               onAddItem={onAddItem}
               onOpenItem={onOpenItem}
               onDeleteItem={onDeleteItem}
+              canEdit={canEdit}
             />
           ))}
         </div>
 
-        <button
-          onClick={onAddGroup}
-          className="flex items-center gap-1.5 rounded-md px-2 py-2 text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-        >
-          <Plus size={15} /> Add group
-        </button>
+        {canEdit && (
+          <button
+            onClick={onAddGroup}
+            className="flex items-center gap-1.5 rounded-md px-2 py-2 text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+          >
+            <Plus size={15} /> Add group
+          </button>
+        )}
       </div>
 
       <DragOverlay>

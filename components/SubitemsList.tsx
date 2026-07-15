@@ -14,11 +14,13 @@ export function SubitemsList({
   groupId,
   statusColumn,
   onUndoableAction,
+  canEdit = true,
 }: {
   parentItemId: string;
   groupId: string;
   statusColumn?: Column;
   onUndoableAction?: (message: string, onUndo: () => void) => void;
+  canEdit?: boolean;
 }) {
   const [subitems, setSubitems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,11 +40,13 @@ export function SubitemsList({
   }, [parentItemId]);
 
   function handleTitleChange(itemId: string, title: string) {
+    if (!canEdit) return;
     setSubitems((prev) => prev.map((s) => (s.id === itemId ? { ...s, title } : s)));
     updateItemTitle(itemId, title);
   }
 
   function handleStatusChange(itemId: string, value: string) {
+    if (!canEdit) return;
     const target = subitems.find((s) => s.id === itemId);
     if (!target || !statusColumn) return;
     const cells = { ...target.cells, [statusColumn.id]: { type: 'status' as const, value } };
@@ -51,6 +55,7 @@ export function SubitemsList({
   }
 
   function handleAdd() {
+    if (!canEdit) return;
     const title = draft.trim() || 'New subitem';
     setDraft('');
     const tempId = `temp-${crypto.randomUUID()}`;
@@ -73,6 +78,7 @@ export function SubitemsList({
   }
 
   function handleDelete(itemId: string) {
+    if (!canEdit) return;
     const target = subitems.find((s) => s.id === itemId);
     if (!target) return;
 
@@ -93,11 +99,11 @@ export function SubitemsList({
     <div className="space-y-1">
       {subitems.map((sub) => (
         <div key={sub.id} className="group flex items-center gap-2 rounded border border-gray-100 px-2 py-1">
-          <div className="min-w-0 flex-1 text-xs text-gray-800">
+          <div className={`min-w-0 flex-1 text-xs text-gray-800 ${!canEdit ? 'pointer-events-none' : ''}`}>
             <TextCell value={sub.title} onChange={(title) => handleTitleChange(sub.id, title)} />
           </div>
           {statusColumn && (
-            <div className="h-6 w-28 shrink-0">
+            <div className={`h-6 w-28 shrink-0 ${!canEdit ? 'pointer-events-none opacity-60' : ''}`}>
               <StatusCell
                 column={statusColumn}
                 value={getCellValueOf(statusColumn, sub)}
@@ -105,30 +111,34 @@ export function SubitemsList({
               />
             </div>
           )}
-          <button
-            onClick={() => handleDelete(sub.id)}
-            className="shrink-0 text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
-          >
-            <Trash2 size={13} />
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => handleDelete(sub.id)}
+              className="shrink-0 text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
       ))}
 
-      <div className="flex items-center gap-2 pt-1">
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-          placeholder="Add subitem"
-          className="flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-[#0073ea]"
-        />
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
-        >
-          <Plus size={12} /> Add
-        </button>
-      </div>
+      {canEdit && (
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            placeholder="Add subitem"
+            className="flex-1 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-[#0073ea]"
+          />
+          <button
+            onClick={handleAdd}
+            className="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+          >
+            <Plus size={12} /> Add
+          </button>
+        </div>
+      )}
     </div>
   );
 }

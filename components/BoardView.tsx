@@ -54,6 +54,9 @@ export function BoardView({
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>(initialData.attachmentCounts);
 
+  const myRole = members.find((m) => m.user_id === currentUserId)?.role;
+  const canEdit = myRole !== 'viewer';
+
   function showToast(message: string, onUndo: () => void) {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ message, onUndo });
@@ -73,18 +76,21 @@ export function BoardView({
   }, [items, columns, search, filters, sort]);
 
   function handleRenameBoard(name: string) {
+    if (!canEdit) return;
     const previous = board;
     setBoard((b) => ({ ...b, name }));
     updateBoard(board.id, { name }).catch(() => setBoard(previous));
   }
 
   function handleUpdateDescription(description: string) {
+    if (!canEdit) return;
     const previous = board;
     setBoard((b) => ({ ...b, description }));
     updateBoard(board.id, { description }).catch(() => setBoard(previous));
   }
 
   function handleCellChange(itemId: string, columnId: string, value: CellValue) {
+    if (!canEdit) return;
     const previous = items;
     const target = items.find((i) => i.id === itemId);
     if (!target) return;
@@ -115,6 +121,7 @@ export function BoardView({
   }
 
   function handleTitleChange(itemId: string, title: string) {
+    if (!canEdit) return;
     const previous = items;
     const previousTitle = previous.find((i) => i.id === itemId)?.title;
     setItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, title } : item)));
@@ -122,24 +129,28 @@ export function BoardView({
   }
 
   function handleColumnOptionsChange(columnId: string, options: ColumnOptions) {
+    if (!canEdit) return;
     const previous = columns;
     setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, options } : c)));
     updateColumnOptions(columnId, options).catch(() => setColumns(previous));
   }
 
   function handleRenameColumn(columnId: string, name: string) {
+    if (!canEdit) return;
     const previous = columns;
     setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, name } : c)));
     renameColumn(columnId, name).catch(() => setColumns(previous));
   }
 
   function handleDeleteColumn(columnId: string) {
+    if (!canEdit) return;
     const previous = columns;
     setColumns((prev) => prev.filter((c) => c.id !== columnId));
     deleteColumn(columnId).catch(() => setColumns(previous));
   }
 
   function handleDeleteItem(itemId: string) {
+    if (!canEdit) return;
     const item = items.find((i) => i.id === itemId);
     if (!item) return;
 
@@ -156,18 +167,21 @@ export function BoardView({
   }
 
   function handleRestoreItem(item: Item) {
+    if (!canEdit) return;
     if (item.parent_item_id === null) {
       setItems((prev) => (prev.some((i) => i.id === item.id) ? prev : [...prev, item]));
     }
   }
 
   function handleRenameGroup(groupId: string, name: string) {
+    if (!canEdit) return;
     const previous = groups;
     setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, name } : g)));
     renameGroup(groupId, name).catch(() => setGroups(previous));
   }
 
   function handleAddItem(groupId: string) {
+    if (!canEdit) return;
     const previous = items;
     const position = items.filter((i) => i.group_id === groupId).length;
     const tempId = `temp-${crypto.randomUUID()}`;
@@ -190,6 +204,7 @@ export function BoardView({
   }
 
   function handleAddGroup() {
+    if (!canEdit) return;
     const previous = groups;
     const position = groups.length;
     const tempId = `temp-${crypto.randomUUID()}`;
@@ -211,6 +226,7 @@ export function BoardView({
   }
 
   function handleAddColumn(name: string, type: ColumnType) {
+    if (!canEdit) return;
     const previous = columns;
     const position = columns.length;
     const options: ColumnOptions =
@@ -251,6 +267,7 @@ export function BoardView({
         onUpdateDescription={handleUpdateDescription}
         onNewItem={() => groups[0] && handleAddItem(groups[0].id)}
         onOpenTrash={() => setTrashOpen(true)}
+        canEdit={canEdit}
       />
 
       <BoardToolbar
@@ -286,6 +303,7 @@ export function BoardView({
           onDeleteItem={handleDeleteItem}
           onRenameColumn={handleRenameColumn}
           onDeleteColumn={handleDeleteColumn}
+          canEdit={canEdit}
         />
       ) : view === 'kanban' ? (
         <KanbanView
@@ -296,6 +314,7 @@ export function BoardView({
           onTitleChange={handleTitleChange}
           onOpenItem={setOpenItemId}
           onDeleteItem={handleDeleteItem}
+          canEdit={canEdit}
         />
       ) : (
         <GanttView
@@ -324,11 +343,12 @@ export function BoardView({
           onUndoableAction={showToast}
           attachmentCount={attachmentCounts[openItem.id] ?? 0}
           onAttachmentCountChange={handleAttachmentCountChange}
+          canEdit={canEdit}
         />
       )}
 
       {trashOpen && (
-        <TrashPanel groups={groups} onClose={() => setTrashOpen(false)} onRestore={handleRestoreItem} />
+        <TrashPanel groups={groups} onClose={() => setTrashOpen(false)} onRestore={handleRestoreItem} canEdit={canEdit} />
       )}
 
       <Toast toast={toast} onDismiss={() => setToast(null)} />

@@ -31,6 +31,7 @@ export function KanbanView({
   onTitleChange,
   onOpenItem,
   onDeleteItem,
+  canEdit = true,
 }: {
   columns: Column[];
   items: Item[];
@@ -39,6 +40,7 @@ export function KanbanView({
   onTitleChange: (itemId: string, title: string) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  canEdit?: boolean;
 }) {
   const statusColumns = useMemo(() => columns.filter((c) => c.type === 'status'), [columns]);
   const [statusColumnId, setStatusColumnId] = useState(statusColumns[0]?.id);
@@ -48,6 +50,7 @@ export function KanbanView({
   const otherColumns = columns.filter((c) => c.id !== statusColumn?.id);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const activeSensors = canEdit ? sensors : [];
 
   if (!statusColumn) {
     return (
@@ -89,7 +92,7 @@ export function KanbanView({
   }
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={activeSensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="px-6 py-4">
         {statusColumns.length > 1 && (
           <div className="mb-3 flex items-center gap-2 text-sm">
@@ -127,6 +130,7 @@ export function KanbanView({
                     onTitleChange={onTitleChange}
                     onOpenItem={onOpenItem}
                     onDeleteItem={onDeleteItem}
+                    canEdit={canEdit}
                   />
                 ))}
               </KanbanBucket>
@@ -187,6 +191,7 @@ function KanbanCard({
   onTitleChange,
   onOpenItem,
   onDeleteItem,
+  canEdit = true,
 }: {
   item: Item;
   statusColumn: Column;
@@ -197,8 +202,9 @@ function KanbanCard({
   onTitleChange: (itemId: string, title: string) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  canEdit?: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id, disabled: !canEdit });
 
   return (
     <div
@@ -206,14 +212,16 @@ function KanbanCard({
       style={{ transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined, opacity: isDragging ? 0.4 : 1 }}
       className="group relative rounded-md border border-gray-200 bg-white p-3 shadow-sm"
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="absolute left-1.5 top-2 cursor-grab text-gray-300 opacity-0 hover:text-gray-500 group-hover:opacity-100 active:cursor-grabbing"
-        title="Drag to move"
-      >
-        <GripVertical size={13} />
-      </button>
+      {canEdit && (
+        <button
+          {...attributes}
+          {...listeners}
+          className="absolute left-1.5 top-2 cursor-grab text-gray-300 opacity-0 hover:text-gray-500 group-hover:opacity-100 active:cursor-grabbing"
+          title="Drag to move"
+        >
+          <GripVertical size={13} />
+        </button>
+      )}
       <div className="absolute right-2 top-2 flex items-center gap-1.5">
         <button
           type="button"
@@ -223,29 +231,32 @@ function KanbanCard({
         >
           <Maximize2 size={12} />
         </button>
-        <button
-          type="button"
-          onClick={() => onDeleteItem?.(item.id)}
-          className="text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
-          title="Delete item"
-        >
-          <Trash2 size={12} />
-        </button>
+        {canEdit && (
+          <button
+            type="button"
+            onClick={() => onDeleteItem?.(item.id)}
+            className="text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+            title="Delete item"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
-      <div className="mb-2 px-4 text-sm font-medium text-gray-800">
-        <TextCell value={item.title} onChange={(title) => onTitleChange(item.id, title)} />
-      </div>
+      <div className={!canEdit ? 'pointer-events-none opacity-70' : undefined}>
+        <div className="mb-2 px-4 text-sm font-medium text-gray-800">
+          <TextCell value={item.title} onChange={(title) => onTitleChange(item.id, title)} />
+        </div>
 
-      <div className="mb-2">
-        <StatusCell
-          column={statusColumn}
-          value={statusLabel}
-          onChange={(value) => onCellChange(item.id, statusColumn.id, { type: 'status', value })}
-        />
-      </div>
+        <div className="mb-2">
+          <StatusCell
+            column={statusColumn}
+            value={statusLabel}
+            onChange={(value) => onCellChange(item.id, statusColumn.id, { type: 'status', value })}
+          />
+        </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {otherColumns.map((column) => {
+        <div className="flex flex-wrap items-center gap-2">
+          {otherColumns.map((column) => {
           const cell = getCellValue(column, item);
           if (column.type === 'people') {
             return (
@@ -273,6 +284,7 @@ function KanbanCard({
           }
           return null;
         })}
+        </div>
       </div>
     </div>
   );

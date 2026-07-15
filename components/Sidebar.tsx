@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronDown, ChevronRight, Copy, LayoutGrid, MoreHorizontal, Plus, LogOut, Trash2, X } from 'lucide-react';
-import type { MemberProfile } from '@/types/database';
+import type { MemberProfile, WorkspaceRole } from '@/types/database';
 import type { WorkspaceWithBoards } from '@/lib/queries';
 import {
   createNewBoard,
@@ -13,6 +13,7 @@ import {
   duplicateBoard,
   inviteMember,
   removeMember,
+  updateMemberRole,
 } from '@/lib/mutations';
 import { BOARD_TEMPLATES } from '@/lib/templates';
 import { avatarColor, initialsFromEmail } from '@/lib/avatar-color';
@@ -81,6 +82,9 @@ export function Sidebar({
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {workspaces.map((workspace) => {
           const isCollapsed = collapsed[workspace.id];
+          const myMembership = workspace.members.find((m) => m.user_id === currentUserId);
+          const canEdit = myMembership?.role !== 'viewer';
+          const isWorkspaceOwner = myMembership?.role === 'owner';
           return (
             <div key={workspace.id} className="mb-3">
               <div className="flex items-center gap-1 pr-1">
@@ -108,21 +112,26 @@ export function Sidebar({
                         >
                           {board.name}
                         </Link>
-                        <BoardMenu
-                          onDuplicate={() => handleDuplicateBoard(board.id)}
-                          onDelete={() => handleDeleteBoard(board.id)}
-                        />
+                        {canEdit && (
+                          <BoardMenu
+                            onDuplicate={() => handleDuplicateBoard(board.id)}
+                            onDelete={() => handleDeleteBoard(board.id)}
+                            canDelete={isWorkspaceOwner}
+                          />
+                        )}
                       </div>
                     );
                   })}
 
-                  <NewBoardMenu
-                    disabled={isPending}
-                    onCreateBlank={() => handleCreateBlankBoard(workspace.id, workspace.boards.length)}
-                    onCreateFromTemplate={(templateId) =>
-                      handleCreateFromTemplate(workspace.id, workspace.boards.length, templateId)
-                    }
-                  />
+                  {canEdit && (
+                    <NewBoardMenu
+                      disabled={isPending}
+                      onCreateBlank={() => handleCreateBlankBoard(workspace.id, workspace.boards.length)}
+                      onCreateFromTemplate={(templateId) =>
+                        handleCreateFromTemplate(workspace.id, workspace.boards.length, templateId)
+                      }
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -153,6 +162,7 @@ function MembersPopover({
   const [members, setMembers] = useState<MemberProfile[]>(workspace.members);
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<Extract<WorkspaceRole, 'member' | 'viewer'>>('member');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -174,7 +184,7 @@ function MembersPopover({
     setError(null);
     setPending(true);
     try {
-      const member = await inviteMember(workspace.id, workspace.name, trimmed);
+      const member = await inviteMember(workspace.id, workspace.name, trimmed, inviteRole);
       setMembers((prev) => [...prev, member]);
       setEmail('');
     } catch (e) {
@@ -187,6 +197,16 @@ function MembersPopover({
   async function handleRemove(userId: string) {
     setMembers((prev) => prev.filter((m) => m.user_id !== userId));
     await removeMember(workspace.id, userId);
+  }
+
+  async function handleRoleChange(userId: string, role: WorkspaceRole) {
+    const previous = members;
+    setMembers((prev) => prev.map((m) => (m.user_id === userId ? { ...m, role } : m)));
+    try {
+      await updateMemberRole(workspace.id, userId, role);
+    } catch {
+      setMembers(previous);
+    }
   }
 
   return (
@@ -209,39 +229,62 @@ function MembersPopover({
         <div className="absolute right-0 top-full z-30 mt-1 w-56 rounded-md border border-gray-200 bg-white p-2 shadow-lg">
           <p className="mb-1 px-1 text-[11px] font-medium text-gray-500">Members</p>
           <div className="mb-1 max-h-40 space-y-0.5 overflow-y-auto">
-            {members.map((m) => (
-              <div key={m.user_id} className="flex items-center gap-2 rounded px-1 py-1">
-                <span
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-semibold text-white"
-                  style={{ backgroundColor: avatarColor(m.user_id) }}
-                >
-                  {initialsFromEmail(m.email)}
-                </span>
-                <span className="flex-1 truncate text-xs text-gray-700">{m.email}</span>
-                <span className="text-[10px] text-gray-400">{m.role}</span>
-                {isOwner && m.role !== 'owner' && (
-                  <button onClick={() => handleRemove(m.user_id)} className="text-gray-300 hover:text-red-500">
-                    <X size={11} />
-                  </button>
-                )}
-              </div>
-            ))}
+            {members.map((m) => {
+              const isSelf = m.user_id === currentUserId;
+              return (
+                <div key={m.user_id} className="flex items-center gap-2 rounded px-1 py-1">
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-semibold text-white"
+                    style={{ backgroundColor: avatarColor(m.user_id) }}
+                  >
+                    {initialsFromEmail(m.email)}
+                  </span>
+                  <span className="flex-1 truncate text-xs text-gray-700">{m.email}</span>
+                  {isOwner && !isSelf ? (
+                    <select
+                      value={m.role}
+                      onChange={(e) => handleRoleChange(m.user_id, e.target.value as WorkspaceRole)}
+                      className="rounded border border-gray-200 px-1 py-0.5 text-[10px] text-gray-600 outline-none focus:border-[#0073ea]"
+                    >
+                      <option value="owner">Owner</option>
+                      <option value="member">Member</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  ) : (
+                    <span className="text-[10px] text-gray-400">{m.role}</span>
+                  )}
+                  {isOwner && !isSelf && (
+                    <button onClick={() => handleRemove(m.user_id)} className="text-gray-300 hover:text-red-500">
+                      <X size={11} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {isOwner && (
             <div className="border-t border-gray-100 pt-2">
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+                placeholder="Invite by email"
+                className="mb-1 w-full rounded border border-gray-300 px-1.5 py-1 text-xs outline-none focus:border-[#0073ea]"
+              />
               <div className="flex items-center gap-1">
-                <input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
-                  placeholder="Invite by email"
-                  className="min-w-0 flex-1 rounded border border-gray-300 px-1.5 py-1 text-xs outline-none focus:border-[#0073ea]"
-                />
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as 'member' | 'viewer')}
+                  className="rounded border border-gray-300 px-1.5 py-1 text-xs outline-none focus:border-[#0073ea]"
+                >
+                  <option value="member">Member</option>
+                  <option value="viewer">Viewer</option>
+                </select>
                 <button
                   onClick={handleInvite}
                   disabled={pending}
-                  className="shrink-0 rounded bg-[#0073ea] px-2 py-1 text-xs font-medium text-white hover:bg-[#0060c2] disabled:opacity-50"
+                  className="flex-1 rounded bg-[#0073ea] px-2 py-1 text-xs font-medium text-white hover:bg-[#0060c2] disabled:opacity-50"
                 >
                   Invite
                 </button>
@@ -318,7 +361,15 @@ function NewBoardMenu({
   );
 }
 
-function BoardMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete: () => void }) {
+function BoardMenu({
+  onDuplicate,
+  onDelete,
+  canDelete,
+}: {
+  onDuplicate: () => void;
+  onDelete: () => void;
+  canDelete: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -355,22 +406,24 @@ function BoardMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelet
           >
             <Copy size={12} /> Duplicate
           </button>
-          <button
-            onClick={() => {
-              if (!confirmingDelete) {
-                setConfirmingDelete(true);
-                return;
-              }
-              onDelete();
-              setOpen(false);
-              setConfirmingDelete(false);
-            }}
-            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
-              confirmingDelete ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <Trash2 size={12} /> {confirmingDelete ? 'Confirm delete?' : 'Delete'}
-          </button>
+          {canDelete && (
+            <button
+              onClick={() => {
+                if (!confirmingDelete) {
+                  setConfirmingDelete(true);
+                  return;
+                }
+                onDelete();
+                setOpen(false);
+                setConfirmingDelete(false);
+              }}
+              className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
+                confirmingDelete ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <Trash2 size={12} /> {confirmingDelete ? 'Confirm delete?' : 'Delete'}
+            </button>
+          )}
         </div>
       )}
     </div>

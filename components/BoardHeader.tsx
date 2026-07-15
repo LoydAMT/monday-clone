@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GanttChartSquare, Plus, Table2, LayoutGrid as KanbanIcon, Trash2 } from 'lucide-react';
+import { Eye, GanttChartSquare, Plus, Table2, LayoutGrid as KanbanIcon, Trash2 } from 'lucide-react';
 import type { Board } from '@/types/database';
 
 export type BoardViewMode = 'table' | 'kanban' | 'gantt';
@@ -14,6 +14,7 @@ export function BoardHeader({
   onUpdateDescription,
   onNewItem,
   onOpenTrash,
+  canEdit = true,
 }: {
   board: Board;
   view: BoardViewMode;
@@ -22,6 +23,7 @@ export function BoardHeader({
   onUpdateDescription: (description: string) => void;
   onNewItem: () => void;
   onOpenTrash: () => void;
+  canEdit?: boolean;
 }) {
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description);
@@ -30,17 +32,26 @@ export function BoardHeader({
     <div className="border-b border-gray-200 bg-white px-6 py-4">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => name.trim() && onRenameBoard(name.trim())}
-            className="w-full truncate rounded px-1 -mx-1 text-xl font-semibold text-gray-900 outline-none hover:bg-gray-50 focus:bg-gray-50"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => name.trim() && onRenameBoard(name.trim())}
+              readOnly={!canEdit}
+              className="w-full truncate rounded px-1 -mx-1 text-xl font-semibold text-gray-900 outline-none hover:bg-gray-50 focus:bg-gray-50"
+            />
+            {!canEdit && (
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">
+                <Eye size={11} /> Viewing only
+              </span>
+            )}
+          </div>
           <input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={() => onUpdateDescription(description)}
             placeholder="Add a description…"
+            readOnly={!canEdit}
             className="mt-1 w-full truncate rounded px-1 -mx-1 text-sm text-gray-500 outline-none hover:bg-gray-50 focus:bg-gray-50"
           />
         </div>
@@ -81,12 +92,14 @@ export function BoardHeader({
             </button>
           </div>
 
-          <button
-            onClick={onNewItem}
-            className="flex items-center gap-1.5 rounded-md bg-[#0073ea] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
-          >
-            <Plus size={14} /> New Item
-          </button>
+          {canEdit && (
+            <button
+              onClick={onNewItem}
+              className="flex items-center gap-1.5 rounded-md bg-[#0073ea] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
+            >
+              <Plus size={14} /> New Item
+            </button>
+          )}
         </div>
       </div>
     </div>

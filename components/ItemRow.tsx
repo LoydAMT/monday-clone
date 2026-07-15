@@ -20,6 +20,7 @@ export function ItemRow({
   onTitleChange,
   onOpenItem,
   onDeleteItem,
+  canEdit = true,
 }: {
   item: Item;
   columns: Column[];
@@ -31,10 +32,11 @@ export function ItemRow({
   onTitleChange: (itemId: string, title: string) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  canEdit?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
-    disabled: orderingLocked,
+    disabled: orderingLocked || !canEdit,
   });
 
   const style = {
@@ -49,7 +51,7 @@ export function ItemRow({
       style={{ ...style, gridTemplateColumns: rowGridTemplate(columns.length) }}
       className="group grid border-t border-gray-100 bg-white hover:bg-blue-50/30"
     >
-      {orderingLocked ? (
+      {orderingLocked || !canEdit ? (
         <div />
       ) : (
         <button
@@ -70,30 +72,44 @@ export function ItemRow({
         >
           <Maximize2 size={12} />
         </button>
-        <TextCell value={item.title} onChange={(title) => onTitleChange(item.id, title)} />
+        <div className={`min-w-0 flex-1 ${!canEdit ? 'pointer-events-none' : ''}`}>
+          <TextCell value={item.title} onChange={(title) => onTitleChange(item.id, title)} />
+        </div>
       </div>
 
-      {columns.map((column) => (
-        <div key={column.id} className="flex items-center justify-center border-r border-gray-100">
-          <Cell
-            column={column}
-            cellValue={getCellValue(column, item)}
-            onChange={(value) => onCellChange(item.id, column.id, value)}
-            onOptionsChange={(options) => onOptionsChange?.(column.id, options)}
-            members={members}
-            onOpenItem={() => onOpenItem?.(item.id)}
-            attachmentCount={attachmentCounts[item.id] ?? 0}
-          />
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => onDeleteItem?.(item.id)}
-        className="flex items-center justify-center text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
-        title="Delete item"
-      >
-        <Trash2 size={13} />
-      </button>
+      {columns.map((column) => {
+        const readOnlyCell = !canEdit && column.type !== 'file';
+        return (
+          <div
+            key={column.id}
+            className={`flex items-center justify-center border-r border-gray-100 ${
+              readOnlyCell ? 'pointer-events-none opacity-60' : ''
+            }`}
+          >
+            <Cell
+              column={column}
+              cellValue={getCellValue(column, item)}
+              onChange={(value) => onCellChange(item.id, column.id, value)}
+              onOptionsChange={(options) => onOptionsChange?.(column.id, options)}
+              members={members}
+              onOpenItem={() => onOpenItem?.(item.id)}
+              attachmentCount={attachmentCounts[item.id] ?? 0}
+            />
+          </div>
+        );
+      })}
+      {canEdit ? (
+        <button
+          type="button"
+          onClick={() => onDeleteItem?.(item.id)}
+          className="flex items-center justify-center text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+          title="Delete item"
+        >
+          <Trash2 size={13} />
+        </button>
+      ) : (
+        <div />
+      )}
     </div>
   );
 }
