@@ -113,6 +113,7 @@ export function ItemDetailModal({
           <ItemThread
             itemId={item.id}
             groups={groups}
+            members={members}
             notifyUserIds={assignedUserIds}
             workspaceId={workspaceId}
             boardId={boardId}

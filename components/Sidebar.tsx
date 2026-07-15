@@ -16,7 +16,7 @@ import {
   updateMemberRole,
 } from '@/lib/mutations';
 import { BOARD_TEMPLATES } from '@/lib/templates';
-import { avatarColor, initialsFromEmail } from '@/lib/avatar-color';
+import { avatarColor, displayName, initials } from '@/lib/avatar-color';
 import { NotificationBell } from './NotificationBell';
 import { signOut } from '@/app/login/actions';
 
@@ -215,11 +215,11 @@ function MembersPopover({
         {members.slice(0, 4).map((m) => (
           <span
             key={m.user_id}
-            title={m.email}
+            title={displayName(m)}
             className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#f6f7fb] text-[8px] font-semibold text-white"
             style={{ backgroundColor: avatarColor(m.user_id) }}
           >
-            {initialsFromEmail(m.email)}
+            {initials(m)}
           </span>
         ))}
         {members.length === 0 && <span className="text-[10px] text-gray-300">+</span>}
@@ -237,9 +237,11 @@ function MembersPopover({
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[8px] font-semibold text-white"
                     style={{ backgroundColor: avatarColor(m.user_id) }}
                   >
-                    {initialsFromEmail(m.email)}
+                    {initials(m)}
                   </span>
-                  <span className="flex-1 truncate text-xs text-gray-700">{m.email}</span>
+                  <span className="flex-1 truncate text-xs text-gray-700" title={m.email}>
+                    {displayName(m)}
+                  </span>
                   {isOwner && !isSelf ? (
                     <select
                       value={m.role}

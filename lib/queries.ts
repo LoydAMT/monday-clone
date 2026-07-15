@@ -28,11 +28,17 @@ async function getMembersForWorkspaces(
     .in('id', memberRows.map((m) => m.user_id));
   if (profileError) throw profileError;
 
-  const emailById = new Map((profiles ?? []).map((p) => [p.id, p.email]));
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
 
   const byWorkspace: Record<string, MemberProfile[]> = {};
   for (const m of memberRows) {
-    const entry: MemberProfile = { user_id: m.user_id, email: emailById.get(m.user_id) ?? m.user_id, role: m.role };
+    const profile = profileById.get(m.user_id);
+    const entry: MemberProfile = {
+      user_id: m.user_id,
+      email: profile?.email ?? m.user_id,
+      full_name: profile?.full_name ?? null,
+      role: m.role,
+    };
     (byWorkspace[m.workspace_id] ??= []).push(entry);
   }
   return byWorkspace;

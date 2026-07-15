@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { MemberProfile } from '@/types/database';
-import { avatarColor, initialsFromEmail } from '@/lib/avatar-color';
+import { avatarColor, displayName, initials } from '@/lib/avatar-color';
 
 export function PeopleCell({
   value,
@@ -45,11 +45,11 @@ export function PeopleCell({
         {assigned.map((m) => (
           <span
             key={m.user_id}
-            title={m.email}
+            title={displayName(m)}
             className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[10px] font-semibold text-white"
             style={{ backgroundColor: avatarColor(m.user_id) }}
           >
-            {initialsFromEmail(m.email)}
+            {initials(m)}
           </span>
         ))}
       </button>
@@ -68,9 +68,9 @@ export function PeopleCell({
                 className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
                 style={{ backgroundColor: avatarColor(m.user_id) }}
               >
-                {initialsFromEmail(m.email)}
+                {initials(m)}
               </span>
-              <span className="flex-1 truncate text-gray-700">{m.email}</span>
+              <span className="flex-1 truncate text-gray-700">{displayName(m)}</span>
               {value.includes(m.user_id) && <span className="text-[#0073ea]">✓</span>}
             </button>
           ))}

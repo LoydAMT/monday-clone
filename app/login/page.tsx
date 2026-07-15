@@ -29,6 +29,18 @@ export default function LoginPage() {
         </p>
 
         <form action={formAction} className="space-y-3">
+          {mode === 'sign-up' && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Name</label>
+              <input
+                name="fullName"
+                type="text"
+                required
+                placeholder="Jane Doe"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#0073ea] focus:ring-1 focus:ring-[#0073ea]"
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-600">Email</label>
             <input

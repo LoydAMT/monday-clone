@@ -19,7 +19,7 @@ export async function inviteMember(
 ): Promise<MemberProfile> {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('id, email')
+    .select('id, email, full_name')
     .eq('email', email.trim().toLowerCase())
     .maybeSingle();
   if (profileError) throw profileError;
@@ -32,12 +32,27 @@ export async function inviteMember(
 
   await createNotification(workspaceId, profile.id, 'invited_to_workspace', { workspace_name: workspaceName });
 
-  return { user_id: profile.id, email: profile.email, role };
+  return { user_id: profile.id, email: profile.email, full_name: profile.full_name, role };
 }
 
 export async function removeMember(workspaceId: string, userId: string) {
   const { error } = await supabase.from('workspace_members').delete().eq('workspace_id', workspaceId).eq('user_id', userId);
   if (error) throw error;
+}
+
+export async function updateProfileName(fullName: string) {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error('Not signed in');
+  // .select().single() forces a visible error when RLS silently matches zero
+  // rows (e.g. migration 0009 not applied yet) — a bare .update() with no
+  // policy in place returns no error and looks like it succeeded.
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ full_name: fullName })
+    .eq('id', auth.user.id)
+    .select()
+    .single();
+  if (error || !data) throw error ?? new Error('Could not save your name — please try again.');
 }
 
 export async function updateMemberRole(workspaceId: string, userId: string, role: WorkspaceRole) {

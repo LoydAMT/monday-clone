@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import type { ActivityLog, Group } from '@/types/database';
+import type { ActivityLog, Group, MemberProfile } from '@/types/database';
 import { addComment, deleteComment, getItemThread, type ThreadEntry } from '@/lib/item-thread';
+import { avatarColor, displayName, initials } from '@/lib/avatar-color';
 
 function describeActivity(activity: ActivityLog, groups: Group[]): string {
   const meta = activity.meta as Record<string, string>;
@@ -44,6 +45,7 @@ function formatTime(iso: string) {
 export function ItemThread({
   itemId,
   groups,
+  members = [],
   notifyUserIds = [],
   workspaceId,
   boardId,
@@ -51,11 +53,14 @@ export function ItemThread({
 }: {
   itemId: string;
   groups: Group[];
+  members?: MemberProfile[];
   notifyUserIds?: string[];
   workspaceId?: string;
   boardId?: string;
   onUndoableAction?: (message: string, onUndo: () => void) => void;
 }) {
+  const memberById = new Map(members.map((m) => [m.user_id, m]));
+  const nameFor = (userId: string) => (memberById.has(userId) ? displayName(memberById.get(userId)!) : 'Former member');
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -150,6 +155,15 @@ export function ItemThread({
                   className="group flex items-start justify-between gap-2 rounded border border-gray-100 bg-gray-50 px-3 py-2"
                 >
                   <div className="min-w-0">
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <span
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[7px] font-semibold text-white"
+                        style={{ backgroundColor: avatarColor(entry.comment.user_id) }}
+                      >
+                        {memberById.has(entry.comment.user_id) ? initials(memberById.get(entry.comment.user_id)!) : '?'}
+                      </span>
+                      <span className="text-[11px] font-medium text-gray-700">{nameFor(entry.comment.user_id)}</span>
+                    </div>
                     <p className="text-xs text-gray-800">{entry.comment.body}</p>
                     <p className="mt-1 text-[10px] text-gray-400">{formatTime(entry.created_at)}</p>
                   </div>
@@ -162,6 +176,7 @@ export function ItemThread({
                 </div>
               ) : (
                 <p key={entry.activity.id} className="text-[11px] text-gray-400">
+                  <span className="font-medium text-gray-500">{nameFor(entry.activity.actor_id)}</span>{' '}
                   {describeActivity(entry.activity, groups)} · {formatTime(entry.created_at)}
                 </p>
               )

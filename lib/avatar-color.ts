@@ -12,3 +12,17 @@ export function initialsFromEmail(email: string): string {
   const chars = parts.length > 1 ? [parts[0][0], parts[1][0]] : [local[0], local[1]];
   return chars.filter(Boolean).join('').toUpperCase().slice(0, 2);
 }
+
+type NamedPerson = { full_name?: string | null; email: string };
+
+export function displayName(person: NamedPerson): string {
+  return person.full_name?.trim() || person.email;
+}
+
+export function initials(person: NamedPerson): string {
+  const name = person.full_name?.trim();
+  if (!name) return initialsFromEmail(person.email);
+  const parts = name.split(/\s+/).filter(Boolean);
+  const chars = parts.length > 1 ? [parts[0][0], parts[parts.length - 1][0]] : [parts[0][0], parts[0][1]];
+  return chars.filter(Boolean).join('').toUpperCase().slice(0, 2);
+}

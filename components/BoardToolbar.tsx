@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDownAZ, Filter as FilterIcon, Search, X } from 'lucide-react';
 import type { Column, MemberProfile } from '@/types/database';
+import { displayName } from '@/lib/avatar-color';
 
 export interface ColumnFilter {
   columnId: string;
@@ -17,7 +18,7 @@ export interface SortState {
 function filterableOptions(column: Column, members: MemberProfile[]): { value: string; label: string }[] | null {
   if (column.type === 'status') return (column.options.statuses ?? []).map((o) => ({ value: o.label, label: o.label }));
   if (column.type === 'dropdown') return (column.options.tags ?? []).map((o) => ({ value: o.label, label: o.label }));
-  if (column.type === 'people') return members.map((m) => ({ value: m.user_id, label: m.email }));
+  if (column.type === 'people') return members.map((m) => ({ value: m.user_id, label: displayName(m) }));
   return null;
 }
 
