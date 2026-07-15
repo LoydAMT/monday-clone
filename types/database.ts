@@ -8,7 +8,8 @@ export type ColumnType =
   | 'checkbox'
   | 'link'
   | 'rating'
-  | 'timeline';
+  | 'timeline'
+  | 'file';
 
 export interface StatusOption {
   label: string;
@@ -80,7 +81,11 @@ export type CellValue =
   | { type: 'checkbox'; value: boolean }
   | { type: 'link'; value: LinkValue | null }
   | { type: 'rating'; value: number | null }
-  | { type: 'timeline'; value: TimelineValue | null };
+  | { type: 'timeline'; value: TimelineValue | null }
+  // File contents live in the `attachments` table, keyed by item_id; the
+  // cell value itself is unused and exists only so Cell.tsx's switch on
+  // cellValue.type stays exhaustive like every other column type.
+  | { type: 'file'; value: null };
 
 export type ItemCells = Record<string, CellValue>;
 
@@ -91,8 +96,20 @@ export interface Item {
   title: string;
   cells: ItemCells;
   position: number;
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Attachment {
+  id: string;
+  item_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  content_type: string | null;
+  uploaded_by: string;
+  created_at: string;
 }
 
 export interface Comment {
@@ -150,6 +167,7 @@ export interface BoardData {
   columns: Column[];
   groups: Group[];
   items: Item[];
+  attachmentCounts: Record<string, number>;
 }
 
 export const DEFAULT_STATUS_OPTIONS: StatusOption[] = [

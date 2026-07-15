@@ -14,6 +14,7 @@ export function ItemRow({
   columns,
   orderingLocked = false,
   members = [],
+  attachmentCounts = {},
   onCellChange,
   onOptionsChange,
   onTitleChange,
@@ -23,6 +24,7 @@ export function ItemRow({
   columns: Column[];
   orderingLocked?: boolean;
   members?: MemberProfile[];
+  attachmentCounts?: Record<string, number>;
   onCellChange: (itemId: string, columnId: string, value: CellValue) => void;
   onOptionsChange?: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
@@ -77,6 +79,8 @@ export function ItemRow({
             onChange={(value) => onCellChange(item.id, column.id, value)}
             onOptionsChange={(options) => onOptionsChange?.(column.id, options)}
             members={members}
+            onOpenItem={() => onOpenItem?.(item.id)}
+            attachmentCount={attachmentCounts[item.id] ?? 0}
           />
         </div>
       ))}

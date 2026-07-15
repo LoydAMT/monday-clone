@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Table2, LayoutGrid as KanbanIcon } from 'lucide-react';
+import { GanttChartSquare, Plus, Table2, LayoutGrid as KanbanIcon, Trash2 } from 'lucide-react';
 import type { Board } from '@/types/database';
+
+export type BoardViewMode = 'table' | 'kanban' | 'gantt';
 
 export function BoardHeader({
   board,
@@ -11,13 +13,15 @@ export function BoardHeader({
   onRenameBoard,
   onUpdateDescription,
   onNewItem,
+  onOpenTrash,
 }: {
   board: Board;
-  view: 'table' | 'kanban';
-  onViewChange: (view: 'table' | 'kanban') => void;
+  view: BoardViewMode;
+  onViewChange: (view: BoardViewMode) => void;
   onRenameBoard: (name: string) => void;
   onUpdateDescription: (description: string) => void;
   onNewItem: () => void;
+  onOpenTrash: () => void;
 }) {
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description);
@@ -42,6 +46,14 @@ export function BoardHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={onOpenTrash}
+            title="Trash"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <Trash2 size={15} />
+          </button>
+
           <div className="flex rounded-md border border-gray-200 p-0.5">
             <button
               onClick={() => onViewChange('table')}
@@ -58,6 +70,14 @@ export function BoardHeader({
               }`}
             >
               <KanbanIcon size={14} /> Kanban
+            </button>
+            <button
+              onClick={() => onViewChange('gantt')}
+              className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium ${
+                view === 'gantt' ? 'bg-[#0073ea] text-white' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              <GanttChartSquare size={14} /> Gantt
             </button>
           </div>
 

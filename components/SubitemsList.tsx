@@ -5,7 +5,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { CellValue, Column, Item } from '@/types/database';
 import { getCellValue } from '@/lib/cell-helpers';
 import { getSubitems } from '@/lib/item-thread';
-import { createNewItem, deleteItem, logActivity, updateItemTitle, upsertCellData } from '@/lib/mutations';
+import { createNewItem, logActivity, restoreItem, softDeleteItem, updateItemTitle, upsertCellData } from '@/lib/mutations';
 import { StatusCell } from './cells/StatusCell';
 import { TextCell } from './cells/TextCell';
 
@@ -13,10 +13,12 @@ export function SubitemsList({
   parentItemId,
   groupId,
   statusColumn,
+  onUndoableAction,
 }: {
   parentItemId: string;
   groupId: string;
   statusColumn?: Column;
+  onUndoableAction?: (message: string, onUndo: () => void) => void;
 }) {
   const [subitems, setSubitems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,6 +61,7 @@ export function SubitemsList({
       title,
       cells: {},
       position: subitems.length,
+      deleted_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -71,9 +74,16 @@ export function SubitemsList({
 
   function handleDelete(itemId: string) {
     const target = subitems.find((s) => s.id === itemId);
+    if (!target) return;
+
     setSubitems((prev) => prev.filter((s) => s.id !== itemId));
-    deleteItem(itemId).then(() => {
-      if (target) logActivity(parentItemId, 'subitem_removed', { subitem_id: itemId, title: target.title });
+    softDeleteItem(itemId).then(() => {
+      logActivity(parentItemId, 'subitem_removed', { subitem_id: itemId, title: target.title });
+    });
+
+    onUndoableAction?.(`"${target.title || 'Subitem'}" moved to trash`, () => {
+      setSubitems((prev) => (prev.some((s) => s.id === itemId) ? prev : [...prev, target]));
+      restoreItem(itemId).catch(() => {});
     });
   }
 

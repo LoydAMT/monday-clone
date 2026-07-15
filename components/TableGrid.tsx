@@ -44,6 +44,7 @@ export function TableGrid({
   sort = null,
   onSortChange,
   members = [],
+  attachmentCounts = {},
   onCellChange,
   onOptionsChange,
   onTitleChange,
@@ -61,6 +62,7 @@ export function TableGrid({
   sort?: SortState | null;
   onSortChange?: (sort: SortState | null) => void;
   members?: MemberProfile[];
+  attachmentCounts?: Record<string, number>;
   onCellChange: (itemId: string, columnId: string, value: CellValue) => void;
   onOptionsChange?: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
@@ -193,7 +195,7 @@ export function TableGrid({
           <p className="mb-2 text-[11px] text-gray-400">Clear search, filters, or sort to drag-reorder items.</p>
         )}
         <div
-          className="grid overflow-hidden rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500"
+          className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500"
           style={{ gridTemplateColumns: headerGridTemplate(columns.length) }}
         >
           <div />
@@ -221,6 +223,7 @@ export function TableGrid({
               items={itemsByGroup[group.id] ?? []}
               orderingLocked={orderingLocked}
               members={members}
+              attachmentCounts={attachmentCounts}
               onCellChange={onCellChange}
               onOptionsChange={onOptionsChange}
               onTitleChange={onTitleChange}

@@ -33,6 +33,8 @@ function cellText(value: CellValue | undefined): string {
       return value.value?.toString() ?? '';
     case 'timeline':
       return value.value ? `${value.value.start} ${value.value.end}` : '';
+    case 'file':
+      return '';
   }
 }
 

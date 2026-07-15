@@ -8,6 +8,7 @@ import { Cell } from './cells/Cell';
 import { getCellValue } from '@/lib/cell-helpers';
 import { SubitemsList } from './SubitemsList';
 import { ItemThread } from './ItemThread';
+import { AttachmentsList } from './AttachmentsList';
 
 export function ItemDetailModal({
   item,
@@ -22,6 +23,9 @@ export function ItemDetailModal({
   onOptionsChange,
   onTitleChange,
   onDeleteItem,
+  onUndoableAction,
+  attachmentCount = 0,
+  onAttachmentCountChange,
 }: {
   item: Item;
   columns: Column[];
@@ -35,6 +39,9 @@ export function ItemDetailModal({
   onOptionsChange: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
   onDeleteItem: (itemId: string) => void;
+  onUndoableAction?: (message: string, onUndo: () => void) => void;
+  attachmentCount?: number;
+  onAttachmentCountChange?: (itemId: string, delta: number) => void;
 }) {
   const [title, setTitle] = useState(item.title);
   const statusColumn = columns.find((c) => c.type === 'status');
@@ -68,6 +75,7 @@ export function ItemDetailModal({
                   onChange={(value) => onCellChange(item.id, column.id, value)}
                   onOptionsChange={(options) => onOptionsChange(column.id, options)}
                   members={members}
+                  attachmentCount={attachmentCount}
                 />
               </div>
             </div>
@@ -76,7 +84,21 @@ export function ItemDetailModal({
 
         <div className="mb-5">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Subitems</h3>
-          <SubitemsList parentItemId={item.id} groupId={item.group_id} statusColumn={statusColumn} />
+          <SubitemsList
+            parentItemId={item.id}
+            groupId={item.group_id}
+            statusColumn={statusColumn}
+            onUndoableAction={onUndoableAction}
+          />
+        </div>
+
+        <div className="mb-5">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Files</h3>
+          <AttachmentsList
+            itemId={item.id}
+            workspaceId={workspaceId}
+            onCountChange={(delta) => onAttachmentCountChange?.(item.id, delta)}
+          />
         </div>
 
         <div className="mb-5">
@@ -87,6 +109,7 @@ export function ItemDetailModal({
             notifyUserIds={assignedUserIds}
             workspaceId={workspaceId}
             boardId={boardId}
+            onUndoableAction={onUndoableAction}
           />
         </div>
 

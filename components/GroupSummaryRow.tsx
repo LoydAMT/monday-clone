@@ -5,7 +5,7 @@ import { rowGridTemplate } from '@/lib/grid';
 export function GroupSummaryRow({ columns, items }: { columns: Column[]; items: Item[] }) {
   return (
     <div
-      className="grid border-t border-gray-200 bg-gray-50/70"
+      className="grid rounded-b-md border-t border-gray-200 bg-gray-50/70"
       style={{ gridTemplateColumns: rowGridTemplate(columns.length) }}
     >
       <div />

@@ -25,5 +25,7 @@ export function getCellValue(column: Column, item: Item): CellValue {
       return { type: 'rating', value: null };
     case 'timeline':
       return { type: 'timeline', value: null };
+    case 'file':
+      return { type: 'file', value: null };
   }
 }

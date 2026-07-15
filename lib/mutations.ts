@@ -58,9 +58,25 @@ export async function updateColumnOptions(columnId: string, options: ColumnOptio
   if (error) throw error;
 }
 
-export async function deleteItem(itemId: string) {
+export async function permanentlyDeleteItem(itemId: string) {
   const { error } = await supabase.from('items').delete().eq('id', itemId);
   if (error) throw error;
+}
+
+export async function softDeleteItem(itemId: string) {
+  const { error } = await supabase.from('items').update({ deleted_at: new Date().toISOString() }).eq('id', itemId);
+  if (error) throw error;
+}
+
+export async function restoreItem(itemId: string): Promise<Item> {
+  const { data, error } = await supabase
+    .from('items')
+    .update({ deleted_at: null })
+    .eq('id', itemId)
+    .select()
+    .single();
+  if (error || !data) throw error;
+  return data;
 }
 
 export async function createNewItem(

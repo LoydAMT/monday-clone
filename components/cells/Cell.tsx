@@ -11,6 +11,7 @@ import { CheckboxCell } from './CheckboxCell';
 import { LinkCell } from './LinkCell';
 import { RatingCell } from './RatingCell';
 import { TimelineCell } from './TimelineCell';
+import { FileCell } from './FileCell';
 
 export function Cell({
   column,
@@ -18,12 +19,16 @@ export function Cell({
   onChange,
   onOptionsChange,
   members = [],
+  onOpenItem,
+  attachmentCount = 0,
 }: {
   column: Column;
   cellValue: CellValue;
   onChange: (value: CellValue) => void;
   onOptionsChange?: (options: ColumnOptions) => void;
   members?: MemberProfile[];
+  onOpenItem?: () => void;
+  attachmentCount?: number;
 }) {
   switch (cellValue.type) {
     case 'text':
@@ -63,5 +68,7 @@ export function Cell({
       );
     case 'timeline':
       return <TimelineCell value={cellValue.value} onChange={(value) => onChange({ type: 'timeline', value })} />;
+    case 'file':
+      return <FileCell count={attachmentCount} onOpenItem={onOpenItem} />;
   }
 }

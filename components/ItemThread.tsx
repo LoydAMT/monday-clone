@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Trash2 } from 'lucide-react';
 import type { ActivityLog, Group } from '@/types/database';
-import { addComment, getItemThread, type ThreadEntry } from '@/lib/item-thread';
+import { addComment, deleteComment, getItemThread, type ThreadEntry } from '@/lib/item-thread';
 
 function describeActivity(activity: ActivityLog, groups: Group[]): string {
   const meta = activity.meta as Record<string, string>;
@@ -22,6 +23,10 @@ function describeActivity(activity: ActivityLog, groups: Group[]): string {
       return `added subitem "${meta.title}"`;
     case 'subitem_removed':
       return `removed subitem "${meta.title}"`;
+    case 'attachment_added':
+      return `attached "${meta.file_name}"`;
+    case 'attachment_removed':
+      return `removed attachment "${meta.file_name}"`;
     default:
       return activity.action;
   }
@@ -42,16 +47,19 @@ export function ItemThread({
   notifyUserIds = [],
   workspaceId,
   boardId,
+  onUndoableAction,
 }: {
   itemId: string;
   groups: Group[];
   notifyUserIds?: string[];
   workspaceId?: string;
   boardId?: string;
+  onUndoableAction?: (message: string, onUndo: () => void) => void;
 }) {
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
+  const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +81,33 @@ export function ItemThread({
     addComment(itemId, body, notifyUserIds, workspaceId, boardId).then((comment) =>
       setEntries((prev) => [...prev, { kind: 'comment', created_at: comment.created_at, comment }])
     );
+  }
+
+  function handleDeleteComment(commentId: string) {
+    const entry = entries.find((e) => e.kind === 'comment' && e.comment.id === commentId);
+    if (!entry || entry.kind !== 'comment') return;
+    const comment = entry.comment;
+
+    setEntries((prev) => prev.filter((e) => !(e.kind === 'comment' && e.comment.id === commentId)));
+
+    const timeoutId = setTimeout(() => {
+      deleteComment(commentId);
+      pendingDeletes.current.delete(commentId);
+    }, 6000);
+    pendingDeletes.current.set(commentId, timeoutId);
+
+    onUndoableAction?.('Comment deleted', () => {
+      const pending = pendingDeletes.current.get(commentId);
+      if (pending) {
+        clearTimeout(pending);
+        pendingDeletes.current.delete(commentId);
+      }
+      setEntries((prev) =>
+        prev.some((e) => e.kind === 'comment' && e.comment.id === commentId)
+          ? prev
+          : [...prev, { kind: 'comment', created_at: comment.created_at, comment }]
+      );
+    });
   }
 
   return (
@@ -110,9 +145,20 @@ export function ItemThread({
             .reverse()
             .map((entry) =>
               entry.kind === 'comment' ? (
-                <div key={entry.comment.id} className="rounded border border-gray-100 bg-gray-50 px-3 py-2">
-                  <p className="text-xs text-gray-800">{entry.comment.body}</p>
-                  <p className="mt-1 text-[10px] text-gray-400">{formatTime(entry.created_at)}</p>
+                <div
+                  key={entry.comment.id}
+                  className="group flex items-start justify-between gap-2 rounded border border-gray-100 bg-gray-50 px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-800">{entry.comment.body}</p>
+                    <p className="mt-1 text-[10px] text-gray-400">{formatTime(entry.created_at)}</p>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteComment(entry.comment.id)}
+                    className="shrink-0 text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+                  >
+                    <Trash2 size={12} />
+                  </button>
                 </div>
               ) : (
                 <p key={entry.activity.id} className="text-[11px] text-gray-400">

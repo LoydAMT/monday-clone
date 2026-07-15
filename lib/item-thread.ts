@@ -60,6 +60,7 @@ export async function getSubitems(parentItemId: string): Promise<Item[]> {
     .from('items')
     .select('*')
     .eq('parent_item_id', parentItemId)
+    .is('deleted_at', null)
     .order('position', { ascending: true });
   if (error) throw error;
   return data ?? [];

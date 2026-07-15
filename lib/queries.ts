@@ -85,13 +85,25 @@ export async function getBoardData(boardId: string): Promise<BoardData | null> {
         .select('*')
         .in('group_id', groupIds)
         .is('parent_item_id', null)
+        .is('deleted_at', null)
         .order('position', { ascending: true })
     : { data: [] };
+
+  const itemIds = (items ?? []).map((i) => i.id);
+  const { data: attachmentRows } = itemIds.length
+    ? await supabase.from('attachments').select('item_id').in('item_id', itemIds)
+    : { data: [] };
+
+  const attachmentCounts: Record<string, number> = {};
+  for (const row of attachmentRows ?? []) {
+    attachmentCounts[row.item_id] = (attachmentCounts[row.item_id] ?? 0) + 1;
+  }
 
   return {
     board,
     columns: columns ?? [],
     groups: groups ?? [],
     items: items ?? [],
+    attachmentCounts,
   };
 }

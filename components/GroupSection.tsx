@@ -14,6 +14,7 @@ export function GroupSection({
   items,
   orderingLocked = false,
   members = [],
+  attachmentCounts = {},
   onCellChange,
   onOptionsChange,
   onTitleChange,
@@ -26,6 +27,7 @@ export function GroupSection({
   items: Item[];
   orderingLocked?: boolean;
   members?: MemberProfile[];
+  attachmentCounts?: Record<string, number>;
   onCellChange: (itemId: string, columnId: string, value: CellValue) => void;
   onOptionsChange?: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
@@ -55,7 +57,7 @@ export function GroupSection({
       </div>
 
       {!collapsed && (
-        <div className="overflow-hidden rounded-md border border-gray-200">
+        <div className="rounded-md border border-gray-200">
           <div ref={setNodeRef}>
             <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
               {items.map((item) => (
@@ -65,6 +67,7 @@ export function GroupSection({
                   columns={columns}
                   orderingLocked={orderingLocked}
                   members={members}
+                  attachmentCounts={attachmentCounts}
                   onCellChange={onCellChange}
                   onOptionsChange={onOptionsChange}
                   onTitleChange={onTitleChange}

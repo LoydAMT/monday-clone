@@ -1,23 +1,27 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import type { BoardData, CellValue, Column, ColumnOptions, ColumnType, Group, Item, MemberProfile } from '@/types/database';
 import { DEFAULT_STATUS_OPTIONS } from '@/types/database';
-import { BoardHeader } from './BoardHeader';
+import { BoardHeader, type BoardViewMode } from './BoardHeader';
 import { BoardToolbar, type ColumnFilter, type SortState } from './BoardToolbar';
 import { TableGrid } from './TableGrid';
 import { KanbanView } from './KanbanView';
+import { GanttView } from './GanttView';
 import { ItemDetailModal } from './ItemDetailModal';
+import { TrashPanel } from './TrashPanel';
+import { Toast, type ToastState } from './ui/Toast';
 import { applyFilters, applySearch, applySort } from '@/lib/filter-sort';
 import { createNotification } from '@/lib/notifications';
 import {
   createNewColumn,
   createNewGroup,
   createNewItem,
-  deleteItem,
   logActivity,
   renameGroup,
+  restoreItem,
+  softDeleteItem,
   updateBoard,
   updateColumnOptions,
   updateItemTitle,
@@ -37,12 +41,26 @@ export function BoardView({
   const [columns, setColumns] = useState<Column[]>(initialData.columns);
   const [groups, setGroups] = useState<Group[]>(initialData.groups);
   const [items, setItems] = useState<Item[]>(initialData.items);
-  const [view, setView] = useState<'table' | 'kanban'>('table');
+  const [view, setView] = useState<BoardViewMode>('table');
   const searchParams = useSearchParams();
   const [openItemId, setOpenItemId] = useState<string | null>(() => searchParams.get('item'));
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const [sort, setSort] = useState<SortState | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>(initialData.attachmentCounts);
+
+  function showToast(message: string, onUndo: () => void) {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast({ message, onUndo });
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 6000);
+  }
+
+  function handleAttachmentCountChange(itemId: string, delta: number) {
+    setAttachmentCounts((prev) => ({ ...prev, [itemId]: Math.max(0, (prev[itemId] ?? 0) + delta) }));
+  }
 
   const orderingLocked = search.trim() !== '' || filters.length > 0 || sort !== null;
 
@@ -108,10 +126,25 @@ export function BoardView({
   }
 
   function handleDeleteItem(itemId: string) {
-    const previous = items;
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+
     setItems((prev) => prev.filter((i) => i.id !== itemId));
     setOpenItemId((id) => (id === itemId ? null : id));
-    deleteItem(itemId).catch(() => setItems(previous));
+    softDeleteItem(itemId).catch(() =>
+      setItems((prev) => (prev.some((i) => i.id === itemId) ? prev : [...prev, item]))
+    );
+
+    showToast(`"${item.title || 'Item'}" moved to trash`, () => {
+      setItems((prev) => (prev.some((i) => i.id === itemId) ? prev : [...prev, item]));
+      restoreItem(itemId).catch(() => {});
+    });
+  }
+
+  function handleRestoreItem(item: Item) {
+    if (item.parent_item_id === null) {
+      setItems((prev) => (prev.some((i) => i.id === item.id) ? prev : [...prev, item]));
+    }
   }
 
   function handleRenameGroup(groupId: string, name: string) {
@@ -131,6 +164,7 @@ export function BoardView({
       title: 'New Item',
       cells: {},
       position,
+      deleted_at: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -202,6 +236,7 @@ export function BoardView({
         onRenameBoard={handleRenameBoard}
         onUpdateDescription={handleUpdateDescription}
         onNewItem={() => groups[0] && handleAddItem(groups[0].id)}
+        onOpenTrash={() => setTrashOpen(true)}
       />
 
       <BoardToolbar
@@ -225,6 +260,7 @@ export function BoardView({
           sort={sort}
           onSortChange={setSort}
           members={members}
+          attachmentCounts={attachmentCounts}
           onCellChange={handleCellChange}
           onOptionsChange={handleColumnOptionsChange}
           onTitleChange={handleTitleChange}
@@ -234,13 +270,21 @@ export function BoardView({
           onAddColumn={handleAddColumn}
           onOpenItem={setOpenItemId}
         />
-      ) : (
+      ) : view === 'kanban' ? (
         <KanbanView
           columns={columns}
           items={visibleItems}
           members={members}
           onCellChange={handleCellChange}
           onTitleChange={handleTitleChange}
+          onOpenItem={setOpenItemId}
+        />
+      ) : (
+        <GanttView
+          columns={columns}
+          groups={groups}
+          items={visibleItems}
+          onCellChange={handleCellChange}
           onOpenItem={setOpenItemId}
         />
       )}
@@ -259,8 +303,17 @@ export function BoardView({
           onOptionsChange={handleColumnOptionsChange}
           onTitleChange={handleTitleChange}
           onDeleteItem={handleDeleteItem}
+          onUndoableAction={showToast}
+          attachmentCount={attachmentCounts[openItem.id] ?? 0}
+          onAttachmentCountChange={handleAttachmentCountChange}
         />
       )}
+
+      {trashOpen && (
+        <TrashPanel groups={groups} onClose={() => setTrashOpen(false)} onRestore={handleRestoreItem} />
+      )}
+
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   );
 }
