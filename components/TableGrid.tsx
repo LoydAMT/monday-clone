@@ -53,6 +53,7 @@ export function TableGrid({
   onAddGroup,
   onAddColumn,
   onOpenItem,
+  onDeleteItem,
 }: {
   columns: Column[];
   groups: Group[];
@@ -71,6 +72,7 @@ export function TableGrid({
   onAddGroup: () => void;
   onAddColumn: (name: string, type: Column['type']) => void;
   onOpenItem?: (itemId: string) => void;
+  onDeleteItem?: (itemId: string) => void;
 }) {
   const [activeItem, setActiveItem] = useState<Item | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
@@ -230,6 +232,7 @@ export function TableGrid({
               onRenameGroup={onRenameGroup}
               onAddItem={onAddItem}
               onOpenItem={onOpenItem}
+              onDeleteItem={onDeleteItem}
             />
           ))}
         </div>

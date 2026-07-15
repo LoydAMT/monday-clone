@@ -21,6 +21,7 @@ export function GroupSection({
   onRenameGroup,
   onAddItem,
   onOpenItem,
+  onDeleteItem,
 }: {
   group: Group;
   columns: Column[];
@@ -34,6 +35,7 @@ export function GroupSection({
   onRenameGroup: (groupId: string, name: string) => void;
   onAddItem: (groupId: string) => void;
   onOpenItem?: (itemId: string) => void;
+  onDeleteItem?: (itemId: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [name, setName] = useState(group.name);
@@ -72,6 +74,7 @@ export function GroupSection({
                   onOptionsChange={onOptionsChange}
                   onTitleChange={onTitleChange}
                   onOpenItem={onOpenItem}
+                  onDeleteItem={onDeleteItem}
                 />
               ))}
             </SortableContext>

@@ -269,6 +269,7 @@ export function BoardView({
           onAddGroup={handleAddGroup}
           onAddColumn={handleAddColumn}
           onOpenItem={setOpenItemId}
+          onDeleteItem={handleDeleteItem}
         />
       ) : view === 'kanban' ? (
         <KanbanView
@@ -278,6 +279,7 @@ export function BoardView({
           onCellChange={handleCellChange}
           onTitleChange={handleTitleChange}
           onOpenItem={setOpenItemId}
+          onDeleteItem={handleDeleteItem}
         />
       ) : (
         <GanttView

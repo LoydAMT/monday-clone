@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Maximize2 } from 'lucide-react';
+import { GripVertical, Maximize2, Trash2 } from 'lucide-react';
 import type { CellValue, Column, ColumnOptions, Item, MemberProfile } from '@/types/database';
 import { Cell } from './cells/Cell';
 import { getCellValue } from '@/lib/cell-helpers';
@@ -19,6 +19,7 @@ export function ItemRow({
   onOptionsChange,
   onTitleChange,
   onOpenItem,
+  onDeleteItem,
 }: {
   item: Item;
   columns: Column[];
@@ -29,6 +30,7 @@ export function ItemRow({
   onOptionsChange?: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
   onOpenItem?: (itemId: string) => void;
+  onDeleteItem?: (itemId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
@@ -84,7 +86,14 @@ export function ItemRow({
           />
         </div>
       ))}
-      <div />
+      <button
+        type="button"
+        onClick={() => onDeleteItem?.(item.id)}
+        className="flex items-center justify-center text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+        title="Delete item"
+      >
+        <Trash2 size={13} />
+      </button>
     </div>
   );
 }
