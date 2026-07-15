@@ -49,7 +49,7 @@ export function ItemRow({
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, gridTemplateColumns: rowGridTemplate(columns.length) }}
+      style={{ ...style, gridTemplateColumns: rowGridTemplate(columns) }}
       className="group grid border-t border-gray-100 bg-white hover:bg-blue-50/30"
     >
       {orderingLocked || !canEdit ? (

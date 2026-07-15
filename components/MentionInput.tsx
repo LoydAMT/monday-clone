@@ -3,11 +3,11 @@
 import { useMemo, useRef, useState } from 'react';
 import type { MemberProfile } from '@/types/database';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
-import { mentionToken } from '@/lib/mentions';
 
 export function MentionInput({
   value,
   onChange,
+  onMention,
   members,
   placeholder,
   className,
@@ -19,6 +19,10 @@ export function MentionInput({
 }: {
   value: string;
   onChange: (value: string) => void;
+  // Called with the selected member so the parent can remember {name, userId}
+  // pairs and convert plain "@Name" back into the `@[Name](id)` storage token
+  // once the draft is submitted — see lib/mentions.ts's applyMentionTokens.
+  onMention?: (member: MemberProfile) => void;
   members: MemberProfile[];
   placeholder?: string;
   className?: string;
@@ -60,11 +64,12 @@ export function MentionInput({
     const caret = ref.current?.selectionStart ?? value.length;
     const before = value.slice(0, queryStart);
     const after = value.slice(caret);
-    const token = `${mentionToken(member)} `;
-    onChange(before + token + after);
+    const label = `@${displayName(member)} `;
+    onChange(before + label + after);
+    onMention?.(member);
     setQuery(null);
     requestAnimationFrame(() => {
-      const pos = before.length + token.length;
+      const pos = before.length + label.length;
       ref.current?.setSelectionRange(pos, pos);
       ref.current?.focus();
     });

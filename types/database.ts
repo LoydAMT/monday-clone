@@ -21,6 +21,7 @@ export interface ColumnOptions {
   statuses?: StatusOption[];
   tags?: StatusOption[];
   ratingMax?: number;
+  width?: number;
 }
 
 export interface LinkValue {

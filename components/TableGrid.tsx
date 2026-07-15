@@ -18,8 +18,9 @@ import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } fro
 import { GroupSection } from './GroupSection';
 import { AddColumnButton } from './AddColumnButton';
 import { ColumnHeaderMenu } from './ColumnHeaderMenu';
+import { ColumnResizeHandle } from './ColumnResizeHandle';
 import type { SortState } from './BoardToolbar';
-import { headerGridTemplate } from '@/lib/grid';
+import { columnWidth, headerGridTemplate } from '@/lib/grid';
 import { logActivity, updateGroupPositions, updateItemPositions, type ItemPositionUpdate } from '@/lib/mutations';
 
 type ByGroup = Record<string, Item[]>;
@@ -86,11 +87,19 @@ export function TableGrid({
   const [activeItem, setActiveItem] = useState<Item | null>(null);
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
+  const [resizing, setResizing] = useState<{ columnId: string; width: number } | null>(null);
 
   // Keep this array's length constant across renders (dnd-kit's internal
   // effects use it as a dependency list) — gating is done per-element via
   // each useSortable's own `disabled` flag instead of emptying this array.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  // While a column is being resized, swap in a provisional width everywhere
+  // header/rows/summary compute their grid template from — otherwise the
+  // header would resize live while rows stayed at the old width until drop.
+  const effectiveColumns = resizing
+    ? columns.map((c) => (c.id === resizing.columnId ? { ...c, options: { ...c.options, width: resizing.width } } : c))
+    : columns;
 
   function toggleSort(columnId: string) {
     if (!onSortChange) return;
@@ -238,12 +247,12 @@ export function TableGrid({
           <div className="min-w-fit">
             <div
               className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500"
-              style={{ gridTemplateColumns: headerGridTemplate(columns.length) }}
+              style={{ gridTemplateColumns: headerGridTemplate(effectiveColumns) }}
             >
               <div className="sticky left-0 z-10 bg-gray-50" />
               <div className="sticky left-[36px] z-10 bg-gray-50 px-2 py-2">Item</div>
               {columns.map((column) => (
-                <div key={column.id} className="group flex items-center border-l border-gray-200 hover:bg-gray-100">
+                <div key={column.id} className="group relative flex items-center border-l border-gray-200 hover:bg-gray-100">
                   <button
                     onClick={() => toggleSort(column.id)}
                     className="flex min-w-0 flex-1 items-center gap-1 truncate px-2 py-2 text-left"
@@ -259,6 +268,17 @@ export function TableGrid({
                       onDelete={() => onDeleteColumn?.(column.id)}
                     />
                   )}
+                  {canEdit && (
+                    <ColumnResizeHandle
+                      width={columnWidth(column)}
+                      onResizeStart={() => setResizing({ columnId: column.id, width: columnWidth(column) })}
+                      onResizeMove={(width) => setResizing({ columnId: column.id, width })}
+                      onResizeEnd={(width) => {
+                        setResizing(null);
+                        onOptionsChange?.(column.id, { ...column.options, width });
+                      }}
+                    />
+                  )}
                 </div>
               ))}
               {canEdit ? <AddColumnButton onAdd={onAddColumn} /> : <div />}
@@ -270,7 +290,7 @@ export function TableGrid({
                   <GroupSection
                     key={group.id}
                     group={group}
-                    columns={columns}
+                    columns={effectiveColumns}
                     items={itemsByGroup[group.id] ?? []}
                     orderingLocked={orderingLocked}
                     members={members}

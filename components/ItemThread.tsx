@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react';
 import type { ActivityLog, Group, MemberProfile } from '@/types/database';
 import { addComment, deleteComment, getItemThread, type ThreadEntry } from '@/lib/item-thread';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
-import { extractMentionedUserIds } from '@/lib/mentions';
+import { applyMentionTokens, extractMentionedUserIds, type DraftMention } from '@/lib/mentions';
 import { MentionInput } from './MentionInput';
 import { MentionText } from './MentionText';
 
@@ -67,6 +67,7 @@ export function ItemThread({
   const [entries, setEntries] = useState<ThreadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
+  const [draftMentions, setDraftMentions] = useState<DraftMention[]>([]);
   const pendingDeletes = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
@@ -83,9 +84,11 @@ export function ItemThread({
   }, [itemId]);
 
   function handlePost() {
-    const body = draft.trim();
-    if (!body) return;
+    const plain = draft.trim();
+    if (!plain) return;
     setDraft('');
+    const body = applyMentionTokens(plain, draftMentions);
+    setDraftMentions([]);
     const mentionedUserIds = extractMentionedUserIds(body);
     addComment(itemId, body, notifyUserIds, workspaceId, boardId, mentionedUserIds).then((comment) =>
       setEntries((prev) => [...prev, { kind: 'comment', created_at: comment.created_at, comment }])
@@ -125,6 +128,7 @@ export function ItemThread({
         <MentionInput
           value={draft}
           onChange={setDraft}
+          onMention={(m) => setDraftMentions((prev) => [...prev, { name: displayName(m), userId: m.user_id }])}
           members={members}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {

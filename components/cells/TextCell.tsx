@@ -4,6 +4,8 @@ import { useState } from 'react';
 import type { MemberProfile } from '@/types/database';
 import { MentionInput } from '../MentionInput';
 import { MentionText } from '../MentionText';
+import { displayName } from '@/lib/avatar-color';
+import { applyMentionTokens, stripMentionTokensForEditing, type DraftMention } from '@/lib/mentions';
 
 export function TextCell({
   value,
@@ -15,21 +17,27 @@ export function TextCell({
   members?: MemberProfile[];
 }) {
   const [draft, setDraft] = useState(value);
+  const [draftMentions, setDraftMentions] = useState<DraftMention[]>([]);
   const [editing, setEditing] = useState(false);
+
+  function startEditing() {
+    const stripped = stripMentionTokensForEditing(value);
+    setDraft(stripped.text);
+    setDraftMentions(stripped.mentions);
+    setEditing(true);
+  }
 
   function commit() {
     setEditing(false);
-    if (draft !== value) onChange(draft);
+    const tokenized = applyMentionTokens(draft, draftMentions);
+    if (tokenized !== value) onChange(tokenized);
   }
 
   if (!editing) {
     return (
       <button
         type="button"
-        onClick={() => {
-          setDraft(value);
-          setEditing(true);
-        }}
+        onClick={startEditing}
         className="h-full w-full truncate px-2 text-left text-xs text-gray-700 hover:bg-gray-50"
       >
         {value ? <MentionText text={value} /> : <span className="text-gray-300">Empty</span>}
@@ -42,6 +50,7 @@ export function TextCell({
       autoFocus
       value={draft}
       onChange={setDraft}
+      onMention={(m) => setDraftMentions((prev) => [...prev, { name: displayName(m), userId: m.user_id }])}
       members={members}
       rows={1}
       onBlur={commit}
