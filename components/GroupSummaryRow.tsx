@@ -18,6 +18,7 @@ export function GroupSummaryRow({ columns, items }: { columns: Column[]; items: 
           {column.type === 'status' && <StatusSummary column={column} items={items} />}
         </div>
       ))}
+      <div />
     </div>
   );
 }

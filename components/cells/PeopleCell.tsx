@@ -1,27 +1,21 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MOCK_PEOPLE } from '@/types/database';
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
+import type { MemberProfile } from '@/types/database';
+import { avatarColor, initialsFromEmail } from '@/lib/avatar-color';
 
 export function PeopleCell({
   value,
   onChange,
+  members,
 }: {
   value: string[];
   onChange: (value: string[]) => void;
+  members: MemberProfile[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const assigned = MOCK_PEOPLE.filter((p) => value.includes(p.id));
+  const assigned = members.filter((m) => value.includes(m.user_id));
 
   useEffect(() => {
     if (!open) return;
@@ -48,35 +42,36 @@ export function PeopleCell({
             +
           </span>
         )}
-        {assigned.map((p) => (
+        {assigned.map((m) => (
           <span
-            key={p.id}
-            title={p.name}
+            key={m.user_id}
+            title={m.email}
             className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[10px] font-semibold text-white"
-            style={{ backgroundColor: p.color }}
+            style={{ backgroundColor: avatarColor(m.user_id) }}
           >
-            {initials(p.name)}
+            {initialsFromEmail(m.email)}
           </span>
         ))}
       </button>
 
       {open && (
         <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
-          {MOCK_PEOPLE.map((p) => (
+          {members.length === 0 && <p className="px-2 py-1.5 text-xs text-gray-400">No members yet.</p>}
+          {members.map((m) => (
             <button
-              key={p.id}
+              key={m.user_id}
               type="button"
-              onClick={() => toggle(p.id)}
+              onClick={() => toggle(m.user_id)}
               className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-gray-50"
             >
               <span
                 className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                style={{ backgroundColor: p.color }}
+                style={{ backgroundColor: avatarColor(m.user_id) }}
               >
-                {initials(p.name)}
+                {initialsFromEmail(m.email)}
               </span>
-              <span className="flex-1 text-gray-700">{p.name}</span>
-              {value.includes(p.id) && <span className="text-[#0073ea]">✓</span>}
+              <span className="flex-1 truncate text-gray-700">{m.email}</span>
+              {value.includes(m.user_id) && <span className="text-[#0073ea]">✓</span>}
             </button>
           ))}
         </div>

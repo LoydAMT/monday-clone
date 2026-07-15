@@ -4,12 +4,11 @@ import { DEFAULT_STATUS_OPTIONS, type CellValue } from '@/types/database';
 // Creates a demo workspace/board so a brand-new account has something to explore.
 // Runs once per user — skipped as soon as they own at least one workspace.
 export async function ensureSeedData(supabase: SupabaseClient, userId: string) {
-  const { count } = await supabase
-    .from('workspaces')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId);
-
-  if (count && count > 0) return;
+  // Atomic lock: only the first concurrent call for this user wins the
+  // insert and proceeds to seed. Any other call — racing in from a route
+  // prefetch, fast refresh, etc. — hits the unique constraint and bails.
+  const { error: lockError } = await supabase.from('user_seed_state').insert({ user_id: userId });
+  if (lockError) return;
 
   const { data: workspace, error: workspaceError } = await supabase
     .from('workspaces')

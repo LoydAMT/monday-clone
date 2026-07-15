@@ -15,5 +15,15 @@ export function getCellValue(column: Column, item: Item): CellValue {
       return { type: 'date', value: null };
     case 'numeric':
       return { type: 'numeric', value: null };
+    case 'dropdown':
+      return { type: 'dropdown', value: [] };
+    case 'checkbox':
+      return { type: 'checkbox', value: false };
+    case 'link':
+      return { type: 'link', value: null };
+    case 'rating':
+      return { type: 'rating', value: null };
+    case 'timeline':
+      return { type: 'timeline', value: null };
   }
 }
