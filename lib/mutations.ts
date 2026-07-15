@@ -145,6 +145,11 @@ export async function createNewBoard(workspaceId: string, position: number, name
   return data;
 }
 
+export async function deleteBoard(boardId: string) {
+  const { error } = await supabase.from('boards').delete().eq('id', boardId);
+  if (error) throw error;
+}
+
 export async function createBoardFromTemplate(
   workspaceId: string,
   position: number,

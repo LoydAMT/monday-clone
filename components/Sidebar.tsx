@@ -3,10 +3,17 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Copy, LayoutGrid, MoreHorizontal, Plus, LogOut, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, LayoutGrid, MoreHorizontal, Plus, LogOut, Trash2, X } from 'lucide-react';
 import type { MemberProfile } from '@/types/database';
 import type { WorkspaceWithBoards } from '@/lib/queries';
-import { createNewBoard, createBoardFromTemplate, duplicateBoard, inviteMember, removeMember } from '@/lib/mutations';
+import {
+  createNewBoard,
+  createBoardFromTemplate,
+  deleteBoard,
+  duplicateBoard,
+  inviteMember,
+  removeMember,
+} from '@/lib/mutations';
 import { BOARD_TEMPLATES } from '@/lib/templates';
 import { avatarColor, initialsFromEmail } from '@/lib/avatar-color';
 import { NotificationBell } from './NotificationBell';
@@ -46,6 +53,19 @@ export function Sidebar({
   async function handleDuplicateBoard(boardId: string) {
     const board = await duplicateBoard(boardId);
     goToBoard(board);
+  }
+
+  async function handleDeleteBoard(boardId: string) {
+    const wasActive = params?.boardId === boardId;
+    await deleteBoard(boardId);
+    if (wasActive) {
+      startTransition(() => {
+        router.push('/');
+        router.refresh();
+      });
+    } else {
+      router.refresh();
+    }
   }
 
   return (
@@ -88,7 +108,10 @@ export function Sidebar({
                         >
                           {board.name}
                         </Link>
-                        <BoardMenu onDuplicate={() => handleDuplicateBoard(board.id)} />
+                        <BoardMenu
+                          onDuplicate={() => handleDuplicateBoard(board.id)}
+                          onDelete={() => handleDeleteBoard(board.id)}
+                        />
                       </div>
                     );
                   })}
@@ -295,14 +318,18 @@ function NewBoardMenu({
   );
 }
 
-function BoardMenu({ onDuplicate }: { onDuplicate: () => void }) {
+function BoardMenu({ onDuplicate, onDelete }: { onDuplicate: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setConfirmingDelete(false);
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -327,6 +354,22 @@ function BoardMenu({ onDuplicate }: { onDuplicate: () => void }) {
             className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50"
           >
             <Copy size={12} /> Duplicate
+          </button>
+          <button
+            onClick={() => {
+              if (!confirmingDelete) {
+                setConfirmingDelete(true);
+                return;
+              }
+              onDelete();
+              setOpen(false);
+              setConfirmingDelete(false);
+            }}
+            className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
+              confirmingDelete ? 'bg-red-50 text-red-600' : 'text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <Trash2 size={12} /> {confirmingDelete ? 'Confirm delete?' : 'Delete'}
           </button>
         </div>
       )}
