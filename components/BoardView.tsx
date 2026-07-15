@@ -13,6 +13,7 @@ import { ItemDetailModal } from './ItemDetailModal';
 import { TrashPanel } from './TrashPanel';
 import { Toast, type ToastState } from './ui/Toast';
 import { applyFilters, applySearch, applySort } from '@/lib/filter-sort';
+import { boardToCsv, downloadTextFile, exportNodeAsPng } from '@/lib/export';
 import { createNotification } from '@/lib/notifications';
 import {
   createNewColumn,
@@ -53,6 +54,8 @@ export function BoardView({
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>(initialData.attachmentCounts);
+  const [exporting, setExporting] = useState(false);
+  const viewContainerRef = useRef<HTMLDivElement>(null);
 
   const myRole = members.find((m) => m.user_id === currentUserId)?.role;
   const canEdit = myRole !== 'viewer';
@@ -255,6 +258,22 @@ export function BoardView({
       .catch(() => setColumns(previous));
   }
 
+  async function handleExport() {
+    if (exporting) return;
+    const safeName = (board.name || 'board').replace(/[\\/:*?"<>|]/g, '-');
+    if (view === 'table') {
+      downloadTextFile(`${safeName}.csv`, boardToCsv(columns, groups, visibleItems, members), 'text/csv;charset=utf-8;');
+      return;
+    }
+    if (!viewContainerRef.current) return;
+    setExporting(true);
+    try {
+      await exportNodeAsPng(viewContainerRef.current, `${safeName}-${view}.png`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const openItem = items.find((i) => i.id === openItemId) ?? null;
 
   return (
@@ -267,6 +286,8 @@ export function BoardView({
         onUpdateDescription={handleUpdateDescription}
         onNewItem={() => groups[0] && handleAddItem(groups[0].id)}
         onOpenTrash={() => setTrashOpen(true)}
+        onExport={handleExport}
+        exporting={exporting}
         canEdit={canEdit}
       />
 
@@ -281,50 +302,53 @@ export function BoardView({
         members={members}
       />
 
-      {view === 'table' ? (
-        <TableGrid
-          columns={columns}
-          groups={groups}
-          items={visibleItems}
-          setItems={setItems}
-          orderingLocked={orderingLocked}
-          sort={sort}
-          onSortChange={setSort}
-          members={members}
-          attachmentCounts={attachmentCounts}
-          onCellChange={handleCellChange}
-          onOptionsChange={handleColumnOptionsChange}
-          onTitleChange={handleTitleChange}
-          onRenameGroup={handleRenameGroup}
-          onAddItem={handleAddItem}
-          onAddGroup={handleAddGroup}
-          onAddColumn={handleAddColumn}
-          onOpenItem={setOpenItemId}
-          onDeleteItem={handleDeleteItem}
-          onRenameColumn={handleRenameColumn}
-          onDeleteColumn={handleDeleteColumn}
-          canEdit={canEdit}
-        />
-      ) : view === 'kanban' ? (
-        <KanbanView
-          columns={columns}
-          items={visibleItems}
-          members={members}
-          onCellChange={handleCellChange}
-          onTitleChange={handleTitleChange}
-          onOpenItem={setOpenItemId}
-          onDeleteItem={handleDeleteItem}
-          canEdit={canEdit}
-        />
-      ) : (
-        <GanttView
-          columns={columns}
-          groups={groups}
-          items={visibleItems}
-          onCellChange={handleCellChange}
-          onOpenItem={setOpenItemId}
-        />
-      )}
+      <div ref={viewContainerRef}>
+        {view === 'table' ? (
+          <TableGrid
+            columns={columns}
+            groups={groups}
+            setGroups={setGroups}
+            items={visibleItems}
+            setItems={setItems}
+            orderingLocked={orderingLocked}
+            sort={sort}
+            onSortChange={setSort}
+            members={members}
+            attachmentCounts={attachmentCounts}
+            onCellChange={handleCellChange}
+            onOptionsChange={handleColumnOptionsChange}
+            onTitleChange={handleTitleChange}
+            onRenameGroup={handleRenameGroup}
+            onAddItem={handleAddItem}
+            onAddGroup={handleAddGroup}
+            onAddColumn={handleAddColumn}
+            onOpenItem={setOpenItemId}
+            onDeleteItem={handleDeleteItem}
+            onRenameColumn={handleRenameColumn}
+            onDeleteColumn={handleDeleteColumn}
+            canEdit={canEdit}
+          />
+        ) : view === 'kanban' ? (
+          <KanbanView
+            columns={columns}
+            items={visibleItems}
+            members={members}
+            onCellChange={handleCellChange}
+            onTitleChange={handleTitleChange}
+            onOpenItem={setOpenItemId}
+            onDeleteItem={handleDeleteItem}
+            canEdit={canEdit}
+          />
+        ) : (
+          <GanttView
+            columns={columns}
+            groups={groups}
+            items={visibleItems}
+            onCellChange={handleCellChange}
+            onOpenItem={setOpenItemId}
+          />
+        )}
+      </div>
 
       {openItem && (
         <ItemDetailModal

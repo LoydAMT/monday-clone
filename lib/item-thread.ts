@@ -29,7 +29,8 @@ export async function addComment(
   body: string,
   notifyUserIds: string[] = [],
   workspaceId?: string,
-  boardId?: string
+  boardId?: string,
+  mentionedUserIds: string[] = []
 ): Promise<Comment> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error('Not signed in');
@@ -43,7 +44,14 @@ export async function addComment(
 
   if (workspaceId) {
     for (const userId of notifyUserIds) {
+      if (userId === auth.user.id) continue;
       createNotification(workspaceId, userId, 'comment_added', { item_id: itemId, board_id: boardId, body });
+    }
+    // Mentioned people get their own notification type even if they're also
+    // assigned (notifyUserIds) — don't double-notify the same person twice.
+    for (const userId of mentionedUserIds) {
+      if (userId === auth.user.id || notifyUserIds.includes(userId)) continue;
+      createNotification(workspaceId, userId, 'mentioned_in_comment', { item_id: itemId, board_id: boardId, body });
     }
   }
 

@@ -8,8 +8,8 @@ export function GroupSummaryRow({ columns, items }: { columns: Column[]; items: 
       className="grid rounded-b-md border-t border-gray-200 bg-gray-50/70"
       style={{ gridTemplateColumns: rowGridTemplate(columns.length) }}
     >
-      <div />
-      <div className="px-2 py-1.5 text-[11px] font-medium text-gray-400">
+      <div className="sticky left-0 z-10 bg-gray-50" />
+      <div className="sticky left-[36px] z-10 bg-gray-50 px-2 py-1.5 text-[11px] font-medium text-gray-400">
         {items.length} item{items.length === 1 ? '' : 's'}
       </div>
       {columns.map((column) => (

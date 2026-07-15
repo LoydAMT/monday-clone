@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react';
 import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } from '@/types/database';
 import { ItemRow } from './ItemRow';
 import { GroupSummaryRow } from './GroupSummaryRow';
@@ -41,11 +41,41 @@ export function GroupSection({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [name, setName] = useState(group.name);
-  const { setNodeRef } = useDroppable({ id: group.id });
+  // The whole group section is one combined draggable+droppable region: the
+  // handle below reorders it among sibling groups, and the same node stays
+  // the drop target items resolve to when dragged into this group (matching
+  // the old dedicated useDroppable, but now covering the header too so you
+  // can drop onto a collapsed group instead of only its (hidden) item list).
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: group.id, data: { type: 'group' }, disabled: orderingLocked || !canEdit });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   return (
-    <div className="mb-5">
-      <div className="flex items-center gap-2 py-2">
+    <div ref={setNodeRef} style={style} className="mb-5">
+      <div className="sticky left-0 z-10 flex w-fit items-center gap-2 bg-white py-2">
+        {orderingLocked || !canEdit ? (
+          <span className="w-3.5" />
+        ) : (
+          <button
+            {...attributes}
+            {...listeners}
+            title="Drag to reorder group"
+            className="cursor-grab text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+          >
+            <GripVertical size={14} />
+          </button>
+        )}
         <button onClick={() => setCollapsed((c) => !c)} className="text-gray-400 hover:text-gray-600">
           {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </button>
@@ -63,26 +93,24 @@ export function GroupSection({
 
       {!collapsed && (
         <div className="rounded-md border border-gray-200">
-          <div ref={setNodeRef}>
-            <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-              {items.map((item) => (
-                <ItemRow
-                  key={item.id}
-                  item={item}
-                  columns={columns}
-                  orderingLocked={orderingLocked}
-                  members={members}
-                  attachmentCounts={attachmentCounts}
-                  onCellChange={onCellChange}
-                  onOptionsChange={onOptionsChange}
-                  onTitleChange={onTitleChange}
-                  onOpenItem={onOpenItem}
-                  onDeleteItem={onDeleteItem}
-                  canEdit={canEdit}
-                />
-              ))}
-            </SortableContext>
-          </div>
+          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            {items.map((item) => (
+              <ItemRow
+                key={item.id}
+                item={item}
+                columns={columns}
+                orderingLocked={orderingLocked}
+                members={members}
+                attachmentCounts={attachmentCounts}
+                onCellChange={onCellChange}
+                onOptionsChange={onOptionsChange}
+                onTitleChange={onTitleChange}
+                onOpenItem={onOpenItem}
+                onDeleteItem={onDeleteItem}
+                canEdit={canEdit}
+              />
+            ))}
+          </SortableContext>
 
           {canEdit && (
             <button

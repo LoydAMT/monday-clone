@@ -11,23 +11,27 @@ export interface BoardTemplate {
 
 export const BOARD_TEMPLATES: BoardTemplate[] = [
   {
-    id: 'product-launch',
-    name: 'Product Launch',
-    description: 'Plan and track a product release from kickoff to launch.',
+    id: 'Main',
+    name: 'Main',
+    description: 'Main Template',
     groups: [
-      { name: 'Planning', color: '#579bfc' },
-      { name: 'In Progress', color: '#fdab3d' },
-      { name: 'Launched', color: '#00c875' },
+      { name: 'Primary', color: '#579bfc' },
     ],
     columns: [
       { name: 'Status', type: 'status', options: { statuses: DEFAULT_STATUS_OPTIONS } },
-      { name: 'Owner', type: 'people' },
-      { name: 'Due Date', type: 'date' },
+      { name: 'Assignee', type: 'people' },
+      { name: 'Percentage', type: 'progress' },
+      { name: 'Timeline', type: 'timeline' },
       {
+        
         name: 'Priority',
         type: 'dropdown',
         options: { tags: [{ label: 'Low', color: '#00c875' }, { label: 'Medium', color: '#fdab3d' }, { label: 'High', color: '#e2445c' }] },
       },
+      { name: 'Link', type: 'link' },
+      { name: 'Date', type: 'date' },
+      { name: 'Files', type: 'file' },
+      
     ],
   },
   {

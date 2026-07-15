@@ -9,7 +9,8 @@ export type ColumnType =
   | 'link'
   | 'rating'
   | 'timeline'
-  | 'file';
+  | 'file'
+  | 'progress';
 
 export interface StatusOption {
   label: string;
@@ -85,7 +86,8 @@ export type CellValue =
   // File contents live in the `attachments` table, keyed by item_id; the
   // cell value itself is unused and exists only so Cell.tsx's switch on
   // cellValue.type stays exhaustive like every other column type.
-  | { type: 'file'; value: null };
+  | { type: 'file'; value: null }
+  | { type: 'progress'; value: number | null };
 
 export type ItemCells = Record<string, CellValue>;
 

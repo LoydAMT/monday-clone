@@ -12,6 +12,7 @@ import { LinkCell } from './LinkCell';
 import { RatingCell } from './RatingCell';
 import { TimelineCell } from './TimelineCell';
 import { FileCell } from './FileCell';
+import { ProgressCell } from './ProgressCell';
 
 export function Cell({
   column,
@@ -32,7 +33,9 @@ export function Cell({
 }) {
   switch (cellValue.type) {
     case 'text':
-      return <TextCell value={cellValue.value} onChange={(value) => onChange({ type: 'text', value })} />;
+      return (
+        <TextCell value={cellValue.value} onChange={(value) => onChange({ type: 'text', value })} members={members} />
+      );
     case 'status':
       return (
         <StatusCell column={column} value={cellValue.value} onChange={(value) => onChange({ type: 'status', value })} />
@@ -70,5 +73,7 @@ export function Cell({
       return <TimelineCell value={cellValue.value} onChange={(value) => onChange({ type: 'timeline', value })} />;
     case 'file':
       return <FileCell count={attachmentCount} onOpenItem={onOpenItem} />;
+    case 'progress':
+      return <ProgressCell value={cellValue.value} onChange={(value) => onChange({ type: 'progress', value })} />;
   }
 }

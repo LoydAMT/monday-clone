@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, GanttChartSquare, Plus, Table2, LayoutGrid as KanbanIcon, Trash2 } from 'lucide-react';
+import { Download, Eye, GanttChartSquare, Plus, Table2, LayoutGrid as KanbanIcon, Trash2 } from 'lucide-react';
 import type { Board } from '@/types/database';
 
 export type BoardViewMode = 'table' | 'kanban' | 'gantt';
@@ -14,6 +14,8 @@ export function BoardHeader({
   onUpdateDescription,
   onNewItem,
   onOpenTrash,
+  onExport,
+  exporting = false,
   canEdit = true,
 }: {
   board: Board;
@@ -23,6 +25,8 @@ export function BoardHeader({
   onUpdateDescription: (description: string) => void;
   onNewItem: () => void;
   onOpenTrash: () => void;
+  onExport?: () => void;
+  exporting?: boolean;
   canEdit?: boolean;
 }) {
   const [name, setName] = useState(board.name);
@@ -57,6 +61,16 @@ export function BoardHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {onExport && (
+            <button
+              onClick={onExport}
+              disabled={exporting}
+              title={view === 'table' ? 'Export as CSV' : 'Export as image'}
+              className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+            >
+              <Download size={15} />
+            </button>
+          )}
           <button
             onClick={onOpenTrash}
             title="Trash"

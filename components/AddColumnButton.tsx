@@ -16,6 +16,7 @@ const TYPE_LABELS: Record<ColumnType, string> = {
   rating: 'Rating',
   timeline: 'Timeline',
   file: 'Files',
+  progress: 'Progress',
 };
 
 export function AddColumnButton({ onAdd }: { onAdd: (name: string, type: ColumnType) => void }) {

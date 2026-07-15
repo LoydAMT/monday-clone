@@ -27,5 +27,7 @@ export function getCellValue(column: Column, item: Item): CellValue {
       return { type: 'timeline', value: null };
     case 'file':
       return { type: 'file', value: null };
+    case 'progress':
+      return { type: 'progress', value: null };
   }
 }

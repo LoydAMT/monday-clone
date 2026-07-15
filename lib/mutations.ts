@@ -301,3 +301,16 @@ export async function updateItemPositions(updates: ItemPositionUpdate[]) {
   const failed = results.find((r) => r.error);
   if (failed?.error) throw failed.error;
 }
+
+export interface GroupPositionUpdate {
+  id: string;
+  position: number;
+}
+
+export async function updateGroupPositions(updates: GroupPositionUpdate[]) {
+  const results = await Promise.all(
+    updates.map(({ id, position }) => supabase.from('groups').update({ position }).eq('id', id))
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+}

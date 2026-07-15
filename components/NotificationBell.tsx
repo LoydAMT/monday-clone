@@ -6,6 +6,7 @@ import { Bell } from 'lucide-react';
 import type { Notification } from '@/types/database';
 import { getNotifications, markAllRead } from '@/lib/notifications';
 import { createClient } from '@/utils/supabase/client';
+import { stripMentionTokens } from '@/lib/mentions';
 
 function describeNotification(n: Notification): string {
   const payload = n.payload as Record<string, string>;
@@ -15,7 +16,9 @@ function describeNotification(n: Notification): string {
     case 'assigned_to_item':
       return `You were assigned to "${payload.item_title}"`;
     case 'comment_added':
-      return `New comment: "${(payload.body ?? '').slice(0, 60)}"`;
+      return `New comment: "${stripMentionTokens(payload.body ?? '').slice(0, 60)}"`;
+    case 'mentioned_in_comment':
+      return `You were mentioned: "${stripMentionTokens(payload.body ?? '').slice(0, 60)}"`;
     default:
       return n.type;
   }

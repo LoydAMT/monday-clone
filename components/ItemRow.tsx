@@ -36,6 +36,7 @@ export function ItemRow({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
+    data: { type: 'item' },
     disabled: orderingLocked || !canEdit,
   });
 
@@ -52,18 +53,18 @@ export function ItemRow({
       className="group grid border-t border-gray-100 bg-white hover:bg-blue-50/30"
     >
       {orderingLocked || !canEdit ? (
-        <div />
+        <div className="sticky left-0 z-10 bg-white group-hover:bg-blue-50/30" />
       ) : (
         <button
           {...attributes}
           {...listeners}
-          className="flex cursor-grab items-center justify-center text-gray-300 opacity-0 hover:text-gray-500 group-hover:opacity-100 active:cursor-grabbing"
+          className="sticky left-0 z-10 flex cursor-grab items-center justify-center bg-white text-gray-300 opacity-0 hover:text-gray-500 group-hover:bg-blue-50/30 group-hover:opacity-100 active:cursor-grabbing"
         >
           <GripVertical size={14} />
         </button>
       )}
 
-      <div className="flex items-center gap-1 border-r border-gray-100 px-1 text-sm text-gray-800">
+      <div className="sticky left-[36px] z-10 flex items-center gap-1 border-r border-gray-100 bg-white px-1 text-sm text-gray-800 group-hover:bg-blue-50/30">
         <button
           type="button"
           onClick={() => onOpenItem?.(item.id)}

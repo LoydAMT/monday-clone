@@ -5,6 +5,9 @@ import { Trash2 } from 'lucide-react';
 import type { ActivityLog, Group, MemberProfile } from '@/types/database';
 import { addComment, deleteComment, getItemThread, type ThreadEntry } from '@/lib/item-thread';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
+import { extractMentionedUserIds } from '@/lib/mentions';
+import { MentionInput } from './MentionInput';
+import { MentionText } from './MentionText';
 
 function describeActivity(activity: ActivityLog, groups: Group[]): string {
   const meta = activity.meta as Record<string, string>;
@@ -83,7 +86,8 @@ export function ItemThread({
     const body = draft.trim();
     if (!body) return;
     setDraft('');
-    addComment(itemId, body, notifyUserIds, workspaceId, boardId).then((comment) =>
+    const mentionedUserIds = extractMentionedUserIds(body);
+    addComment(itemId, body, notifyUserIds, workspaceId, boardId, mentionedUserIds).then((comment) =>
       setEntries((prev) => [...prev, { kind: 'comment', created_at: comment.created_at, comment }])
     );
   }
@@ -118,18 +122,20 @@ export function ItemThread({
   return (
     <div>
       <div className="mb-3 flex gap-2">
-        <textarea
+        <MentionInput
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={setDraft}
+          members={members}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               handlePost();
             }
           }}
-          placeholder="Write an update…"
+          placeholder="Write an update… (@ to mention someone)"
           rows={2}
-          className="flex-1 resize-none rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#0073ea]"
+          wrapperClassName="relative flex-1"
+          className="w-full resize-none rounded border border-gray-200 px-2 py-1.5 text-xs outline-none focus:border-[#0073ea]"
         />
         <button
           onClick={handlePost}
@@ -164,7 +170,7 @@ export function ItemThread({
                       </span>
                       <span className="text-[11px] font-medium text-gray-700">{nameFor(entry.comment.user_id)}</span>
                     </div>
-                    <p className="text-xs text-gray-800">{entry.comment.body}</p>
+                    <MentionText text={entry.comment.body} className="text-xs text-gray-800" />
                     <p className="mt-1 text-[10px] text-gray-400">{formatTime(entry.created_at)}</p>
                   </div>
                   <button

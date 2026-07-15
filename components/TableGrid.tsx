@@ -12,7 +12,7 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { arrayMove } from '@dnd-kit/sortable';
+import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ArrowDown, ArrowUp, GripVertical, Plus } from 'lucide-react';
 import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } from '@/types/database';
 import { GroupSection } from './GroupSection';
@@ -20,7 +20,7 @@ import { AddColumnButton } from './AddColumnButton';
 import { ColumnHeaderMenu } from './ColumnHeaderMenu';
 import type { SortState } from './BoardToolbar';
 import { headerGridTemplate } from '@/lib/grid';
-import { logActivity, updateItemPositions, type ItemPositionUpdate } from '@/lib/mutations';
+import { logActivity, updateGroupPositions, updateItemPositions, type ItemPositionUpdate } from '@/lib/mutations';
 
 type ByGroup = Record<string, Item[]>;
 
@@ -39,6 +39,7 @@ function flatten(byGroup: ByGroup, groups: Group[]): Item[] {
 export function TableGrid({
   columns,
   groups,
+  setGroups,
   items,
   setItems,
   orderingLocked = false,
@@ -61,6 +62,7 @@ export function TableGrid({
 }: {
   columns: Column[];
   groups: Group[];
+  setGroups: (updater: Group[] | ((prev: Group[]) => Group[])) => void;
   items: Item[];
   setItems: (updater: Item[] | ((prev: Item[]) => Item[])) => void;
   orderingLocked?: boolean;
@@ -82,6 +84,7 @@ export function TableGrid({
   canEdit?: boolean;
 }) {
   const [activeItem, setActiveItem] = useState<Item | null>(null);
+  const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
@@ -102,12 +105,17 @@ export function TableGrid({
   }
 
   function handleDragStart(event: DragStartEvent) {
+    if (event.active.data.current?.type === 'group') {
+      setActiveGroup(groups.find((g) => g.id === event.active.id) ?? null);
+      return;
+    }
     const item = items.find((i) => i.id === event.active.id);
     setActiveItem(item ?? null);
     snapshotRef.current = items;
   }
 
   function handleDragOver(event: DragOverEvent) {
+    if (event.active.data.current?.type === 'group') return;
     const { active, over } = event;
     if (!over) return;
     const activeId = String(active.id);
@@ -140,6 +148,23 @@ export function TableGrid({
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
+
+    if (active.data.current?.type === 'group') {
+      setActiveGroup(null);
+      if (!over || active.id === over.id) return;
+      const oldIndex = groups.findIndex((g) => g.id === active.id);
+      const newIndex = groups.findIndex((g) => g.id === over.id);
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      const previousGroups = groups;
+      const reordered = arrayMove(groups, oldIndex, newIndex).map((g, index) => ({ ...g, position: index }));
+      setGroups(reordered);
+      updateGroupPositions(reordered.map((g) => ({ id: g.id, position: g.position }))).catch(() =>
+        setGroups(previousGroups)
+      );
+      return;
+    }
+
     setActiveItem(null);
     const previous = snapshotRef.current;
     snapshotRef.current = null;
@@ -203,54 +228,64 @@ export function TableGrid({
         {orderingLocked && (
           <p className="mb-2 text-[11px] text-gray-400">Clear search, filters, or sort to drag-reorder items.</p>
         )}
-        <div
-          className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500"
-          style={{ gridTemplateColumns: headerGridTemplate(columns.length) }}
-        >
-          <div />
-          <div className="px-2 py-2">Item</div>
-          {columns.map((column) => (
-            <div key={column.id} className="group flex items-center border-l border-gray-200 hover:bg-gray-100">
-              <button
-                onClick={() => toggleSort(column.id)}
-                className="flex min-w-0 flex-1 items-center gap-1 truncate px-2 py-2 text-left"
-              >
-                <span className="truncate">{column.name}</span>
-                {sort?.columnId === column.id &&
-                  (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
-              </button>
-              {canEdit && (
-                <ColumnHeaderMenu
-                  column={column}
-                  onRename={(name) => onRenameColumn?.(column.id, name)}
-                  onDelete={() => onDeleteColumn?.(column.id)}
-                />
-              )}
+        {/* Header and rows share one horizontal scroll container so they move
+            together — enough columns (e.g. adding Progress on top of Status/
+            People/Timeline/Link/Date/Files) push total width past the
+            viewport, and without this the extra columns were unreachable. */}
+        <div className="overflow-x-auto">
+          <div className="min-w-fit">
+            <div
+              className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500"
+              style={{ gridTemplateColumns: headerGridTemplate(columns.length) }}
+            >
+              <div className="sticky left-0 z-10 bg-gray-50" />
+              <div className="sticky left-[36px] z-10 bg-gray-50 px-2 py-2">Item</div>
+              {columns.map((column) => (
+                <div key={column.id} className="group flex items-center border-l border-gray-200 hover:bg-gray-100">
+                  <button
+                    onClick={() => toggleSort(column.id)}
+                    className="flex min-w-0 flex-1 items-center gap-1 truncate px-2 py-2 text-left"
+                  >
+                    <span className="truncate">{column.name}</span>
+                    {sort?.columnId === column.id &&
+                      (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+                  </button>
+                  {canEdit && (
+                    <ColumnHeaderMenu
+                      column={column}
+                      onRename={(name) => onRenameColumn?.(column.id, name)}
+                      onDelete={() => onDeleteColumn?.(column.id)}
+                    />
+                  )}
+                </div>
+              ))}
+              {canEdit ? <AddColumnButton onAdd={onAddColumn} /> : <div />}
             </div>
-          ))}
-          {canEdit ? <AddColumnButton onAdd={onAddColumn} /> : <div />}
-        </div>
 
-        <div className="mt-3">
-          {groups.map((group) => (
-            <GroupSection
-              key={group.id}
-              group={group}
-              columns={columns}
-              items={itemsByGroup[group.id] ?? []}
-              orderingLocked={orderingLocked}
-              members={members}
-              attachmentCounts={attachmentCounts}
-              onCellChange={onCellChange}
-              onOptionsChange={onOptionsChange}
-              onTitleChange={onTitleChange}
-              onRenameGroup={onRenameGroup}
-              onAddItem={onAddItem}
-              onOpenItem={onOpenItem}
-              onDeleteItem={onDeleteItem}
-              canEdit={canEdit}
-            />
-          ))}
+            <div className="mt-3">
+              <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+                {groups.map((group) => (
+                  <GroupSection
+                    key={group.id}
+                    group={group}
+                    columns={columns}
+                    items={itemsByGroup[group.id] ?? []}
+                    orderingLocked={orderingLocked}
+                    members={members}
+                    attachmentCounts={attachmentCounts}
+                    onCellChange={onCellChange}
+                    onOptionsChange={onOptionsChange}
+                    onTitleChange={onTitleChange}
+                    onRenameGroup={onRenameGroup}
+                    onAddItem={onAddItem}
+                    onOpenItem={onOpenItem}
+                    onDeleteItem={onDeleteItem}
+                    canEdit={canEdit}
+                  />
+                ))}
+              </SortableContext>
+            </div>
+          </div>
         </div>
 
         {canEdit && (
@@ -268,6 +303,15 @@ export function TableGrid({
           <div className="flex items-center gap-2 rounded border border-gray-300 bg-white px-3 py-2 text-sm shadow-lg">
             <GripVertical size={14} className="text-gray-300" />
             {activeItem.title}
+          </div>
+        )}
+        {activeGroup && (
+          <div className="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 shadow-lg">
+            <GripVertical size={14} className="text-gray-300" />
+            <span className="h-3 w-3 shrink-0 rounded-sm" style={{ backgroundColor: activeGroup.color }} />
+            <span className="text-sm font-semibold" style={{ color: activeGroup.color }}>
+              {activeGroup.name}
+            </span>
           </div>
         )}
       </DragOverlay>

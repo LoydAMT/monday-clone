@@ -35,6 +35,8 @@ function cellText(value: CellValue | undefined): string {
       return value.value ? `${value.value.start} ${value.value.end}` : '';
     case 'file':
       return '';
+    case 'progress':
+      return value.value !== null ? `${value.value}%` : '';
   }
 }
 
@@ -74,6 +76,8 @@ function sortKey(value: CellValue | undefined): string | number {
     case 'numeric':
       return value.value ?? -Infinity;
     case 'rating':
+      return value.value ?? -Infinity;
+    case 'progress':
       return value.value ?? -Infinity;
     case 'date':
       return value.value ?? '';
