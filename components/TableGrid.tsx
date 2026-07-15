@@ -87,8 +87,10 @@ export function TableGrid({
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
 
+  // Keep this array's length constant across renders (dnd-kit's internal
+  // effects use it as a dependency list) — gating is done per-element via
+  // each useSortable's own `disabled` flag instead of emptying this array.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const activeSensors = orderingLocked || !canEdit ? [] : sensors;
 
   function toggleSort(columnId: string) {
     if (!onSortChange) return;
@@ -218,7 +220,7 @@ export function TableGrid({
 
   return (
     <DndContext
-      sensors={activeSensors}
+      sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}

@@ -49,8 +49,10 @@ export function KanbanView({
 
   const otherColumns = columns.filter((c) => c.id !== statusColumn?.id);
 
+  // Keep this array's length constant across renders (dnd-kit's internal
+  // effects use it as a dependency list) — gating is done per-card via
+  // useDraggable's own `disabled` flag instead of emptying this array.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-  const activeSensors = canEdit ? sensors : [];
 
   if (!statusColumn) {
     return (
@@ -92,7 +94,7 @@ export function KanbanView({
   }
 
   return (
-    <DndContext sensors={activeSensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="px-6 py-4">
         {statusColumns.length > 1 && (
           <div className="mb-3 flex items-center gap-2 text-sm">
