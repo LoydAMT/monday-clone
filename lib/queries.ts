@@ -73,12 +73,22 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<MemberPr
   return byWorkspace[workspaceId] ?? [];
 }
 
-export async function getBoardData(boardId: string): Promise<BoardData | null> {
-  const supabase = await createClient();
+// Split from getBoardData so callers that also need something else keyed off
+// the board row (e.g. workspace_id, for fetching members) can fire that
+// fetch in parallel with the rest of the board's contents instead of
+// waiting for the entire board to load first.
+export async function getBoardRow(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  boardId: string
+): Promise<Board | null> {
+  const { data } = await supabase.from('boards').select('*').eq('id', boardId).single();
+  return data ?? null;
+}
 
-  const { data: board } = await supabase.from('boards').select('*').eq('id', boardId).single();
-  if (!board) return null;
-
+export async function getBoardContents(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  boardId: string
+): Promise<Omit<BoardData, 'board'>> {
   const [{ data: columns }, { data: groups }] = await Promise.all([
     supabase.from('columns').select('*').eq('board_id', boardId).order('position', { ascending: true }),
     supabase.from('groups').select('*').eq('board_id', boardId).order('position', { ascending: true }),
@@ -106,10 +116,17 @@ export async function getBoardData(boardId: string): Promise<BoardData | null> {
   }
 
   return {
-    board,
     columns: columns ?? [],
     groups: groups ?? [],
     items: items ?? [],
     attachmentCounts,
   };
+}
+
+export async function getBoardData(boardId: string): Promise<BoardData | null> {
+  const supabase = await createClient();
+  const board = await getBoardRow(supabase, boardId);
+  if (!board) return null;
+  const contents = await getBoardContents(supabase, boardId);
+  return { board, ...contents };
 }

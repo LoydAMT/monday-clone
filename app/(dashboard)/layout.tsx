@@ -7,17 +7,31 @@ import { ProfileNameGate } from '@/components/ProfileNameGate';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
+  // Middleware already ran auth.getUser() for this request (a real network
+  // round trip to revalidate the JWT) and redirects unauthenticated requests
+  // before this layout ever renders — getSession() just reads the already-
+  // validated cookie, so this doesn't need to hit the network again too.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  if (!user) redirect('/login');
+  if (!session) redirect('/login');
+  const user = session.user;
 
-  await ensureSeedData(supabase, user.id);
-  const [workspaces, { data: profile }] = await Promise.all([
+  const [initialWorkspaces, { data: profile }] = await Promise.all([
     getWorkspacesWithBoards(),
     supabase.from('profiles').select('full_name').eq('id', user.id).maybeSingle(),
   ]);
+  let workspaces = initialWorkspaces;
+
+  // ensureSeedData's own insert-then-bail-on-conflict is only needed the
+  // very first time a user shows up with zero workspaces — skip it (and the
+  // wasted round trip) on every other navigation. Its internal atomic lock
+  // still protects against two concurrent first-visits double-seeding.
+  if (workspaces.length === 0) {
+    await ensureSeedData(supabase, user.id);
+    workspaces = await getWorkspacesWithBoards();
+  }
 
   return (
     <div className="flex h-screen">
