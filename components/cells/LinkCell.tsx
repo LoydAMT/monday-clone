@@ -1,8 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Link2 } from 'lucide-react';
+import { ExternalLink, Link2 } from 'lucide-react';
 import type { LinkValue } from '@/types/database';
+
+function withProtocol(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
 
 export function LinkCell({
   value,
@@ -75,12 +79,25 @@ export function LinkCell({
             placeholder="Display text"
             className="mb-3 w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#0073ea]"
           />
-          <button
-            onClick={submit}
-            className="w-full rounded bg-[#0073ea] py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
-          >
-            Save
-          </button>
+          <div className="flex gap-1.5">
+            {value && (
+              <a
+                href={withProtocol(value.url)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1 rounded border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                title="Open link"
+              >
+                <ExternalLink size={12} />
+              </a>
+            )}
+            <button
+              onClick={submit}
+              className="flex-1 rounded bg-[#0073ea] py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
+            >
+              Save
+            </button>
+          </div>
         </div>
       )}
     </div>

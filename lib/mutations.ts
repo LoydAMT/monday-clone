@@ -135,6 +135,16 @@ export async function renameGroup(groupId: string, name: string) {
   if (error) throw error;
 }
 
+export async function renameColumn(columnId: string, name: string) {
+  const { error } = await supabase.from('columns').update({ name }).eq('id', columnId);
+  if (error) throw error;
+}
+
+export async function deleteColumn(columnId: string) {
+  const { error } = await supabase.from('columns').delete().eq('id', columnId);
+  if (error) throw error;
+}
+
 export async function createNewBoard(workspaceId: string, position: number, name = 'New Board'): Promise<Board> {
   const { data, error } = await supabase
     .from('boards')

@@ -18,7 +18,9 @@ import {
   createNewColumn,
   createNewGroup,
   createNewItem,
+  deleteColumn,
   logActivity,
+  renameColumn,
   renameGroup,
   restoreItem,
   softDeleteItem,
@@ -123,6 +125,18 @@ export function BoardView({
     const previous = columns;
     setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, options } : c)));
     updateColumnOptions(columnId, options).catch(() => setColumns(previous));
+  }
+
+  function handleRenameColumn(columnId: string, name: string) {
+    const previous = columns;
+    setColumns((prev) => prev.map((c) => (c.id === columnId ? { ...c, name } : c)));
+    renameColumn(columnId, name).catch(() => setColumns(previous));
+  }
+
+  function handleDeleteColumn(columnId: string) {
+    const previous = columns;
+    setColumns((prev) => prev.filter((c) => c.id !== columnId));
+    deleteColumn(columnId).catch(() => setColumns(previous));
   }
 
   function handleDeleteItem(itemId: string) {
@@ -270,6 +284,8 @@ export function BoardView({
           onAddColumn={handleAddColumn}
           onOpenItem={setOpenItemId}
           onDeleteItem={handleDeleteItem}
+          onRenameColumn={handleRenameColumn}
+          onDeleteColumn={handleDeleteColumn}
         />
       ) : view === 'kanban' ? (
         <KanbanView

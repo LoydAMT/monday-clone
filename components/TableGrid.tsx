@@ -17,6 +17,7 @@ import { ArrowDown, ArrowUp, GripVertical, Plus } from 'lucide-react';
 import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } from '@/types/database';
 import { GroupSection } from './GroupSection';
 import { AddColumnButton } from './AddColumnButton';
+import { ColumnHeaderMenu } from './ColumnHeaderMenu';
 import type { SortState } from './BoardToolbar';
 import { headerGridTemplate } from '@/lib/grid';
 import { logActivity, updateItemPositions, type ItemPositionUpdate } from '@/lib/mutations';
@@ -54,6 +55,8 @@ export function TableGrid({
   onAddColumn,
   onOpenItem,
   onDeleteItem,
+  onRenameColumn,
+  onDeleteColumn,
 }: {
   columns: Column[];
   groups: Group[];
@@ -73,6 +76,8 @@ export function TableGrid({
   onAddColumn: (name: string, type: Column['type']) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  onRenameColumn?: (columnId: string, name: string) => void;
+  onDeleteColumn?: (columnId: string) => void;
 }) {
   const [activeItem, setActiveItem] = useState<Item | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
@@ -203,15 +208,21 @@ export function TableGrid({
           <div />
           <div className="px-2 py-2">Item</div>
           {columns.map((column) => (
-            <button
-              key={column.id}
-              onClick={() => toggleSort(column.id)}
-              className="flex items-center gap-1 truncate border-l border-gray-200 px-2 py-2 text-left hover:bg-gray-100"
-            >
-              <span className="truncate">{column.name}</span>
-              {sort?.columnId === column.id &&
-                (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
-            </button>
+            <div key={column.id} className="group flex items-center border-l border-gray-200 hover:bg-gray-100">
+              <button
+                onClick={() => toggleSort(column.id)}
+                className="flex min-w-0 flex-1 items-center gap-1 truncate px-2 py-2 text-left"
+              >
+                <span className="truncate">{column.name}</span>
+                {sort?.columnId === column.id &&
+                  (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+              </button>
+              <ColumnHeaderMenu
+                column={column}
+                onRename={(name) => onRenameColumn?.(column.id, name)}
+                onDelete={() => onDeleteColumn?.(column.id)}
+              />
+            </div>
           ))}
           <AddColumnButton onAdd={onAddColumn} />
         </div>
