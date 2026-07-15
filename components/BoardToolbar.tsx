@@ -43,13 +43,13 @@ export function BoardToolbar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-6 py-2.5">
-      <div className="relative">
+      <div className="relative w-full sm:w-48">
         <Search size={13} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search this board"
-          className="w-48 rounded-md border border-gray-200 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#0073ea]"
+          className="w-full rounded-md border border-gray-200 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#0073ea]"
         />
       </div>
 

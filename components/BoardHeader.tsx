@@ -34,7 +34,7 @@ export function BoardHeader({
 
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-4">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <input
@@ -60,7 +60,7 @@ export function BoardHeader({
           />
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex flex-wrap shrink-0 items-center gap-2">
           {onExport && (
             <button
               onClick={onExport}
@@ -86,7 +86,7 @@ export function BoardHeader({
                 view === 'table' ? 'bg-[#0073ea] text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
-              <Table2 size={14} /> Table
+              <Table2 size={14} /> <span className="hidden sm:inline">Table</span>
             </button>
             <button
               onClick={() => onViewChange('kanban')}
@@ -94,7 +94,7 @@ export function BoardHeader({
                 view === 'kanban' ? 'bg-[#0073ea] text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
-              <KanbanIcon size={14} /> Kanban
+              <KanbanIcon size={14} /> <span className="hidden sm:inline">Kanban</span>
             </button>
             <button
               onClick={() => onViewChange('gantt')}
@@ -102,7 +102,7 @@ export function BoardHeader({
                 view === 'gantt' ? 'bg-[#0073ea] text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
-              <GanttChartSquare size={14} /> Gantt
+              <GanttChartSquare size={14} /> <span className="hidden sm:inline">Gantt</span>
             </button>
           </div>
 
@@ -111,7 +111,7 @@ export function BoardHeader({
               onClick={onNewItem}
               className="flex items-center gap-1.5 rounded-md bg-[#0073ea] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
             >
-              <Plus size={14} /> New Item
+              <Plus size={14} /> <span className="hidden sm:inline">New Item</span>
             </button>
           )}
         </div>

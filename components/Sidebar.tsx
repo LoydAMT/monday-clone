@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Copy, LayoutGrid, MoreHorizontal, Plus, LogOut, Trash2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, LayoutGrid, Menu, MoreHorizontal, Plus, LogOut, Trash2, X } from 'lucide-react';
 import type { MemberProfile, WorkspaceRole } from '@/types/database';
 import type { WorkspaceWithBoards } from '@/lib/queries';
 import {
@@ -31,8 +31,10 @@ export function Sidebar({
   const params = useParams<{ boardId?: string }>();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   function goToBoard(board: { id: string }) {
+    setMobileOpen(false);
     startTransition(() => {
       router.push(`/board/${board.id}`);
       router.refresh();
@@ -70,85 +72,107 @@ export function Sidebar({
   }
 
   return (
-    <aside className="flex h-screen w-64 flex-col border-r border-gray-200 bg-[#f6f7fb]">
-      <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3.5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0073ea] text-white">
-          <LayoutGrid size={16} />
+    <>
+      <button
+        onClick={() => setMobileOpen(true)}
+        title="Open menu"
+        className="fixed left-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-500 shadow-sm md:hidden"
+      >
+        <Menu size={18} />
+      </button>
+
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-gray-200 bg-[#f6f7fb] transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3.5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0073ea] text-white">
+            <LayoutGrid size={16} />
+          </div>
+          <span className="flex-1 truncate text-sm font-semibold text-gray-900">work-boards</span>
+          <NotificationBell currentUserId={currentUserId} />
+          <button onClick={() => setMobileOpen(false)} title="Close menu" className="text-gray-400 hover:text-gray-600 md:hidden">
+            <X size={16} />
+          </button>
         </div>
-        <span className="flex-1 truncate text-sm font-semibold text-gray-900">work-boards</span>
-        <NotificationBell currentUserId={currentUserId} />
-      </div>
 
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        {workspaces.map((workspace) => {
-          const isCollapsed = collapsed[workspace.id];
-          const myMembership = workspace.members.find((m) => m.user_id === currentUserId);
-          const canEdit = myMembership?.role !== 'viewer';
-          const isWorkspaceOwner = myMembership?.role === 'owner';
-          return (
-            <div key={workspace.id} className="mb-3">
-              <div className="flex items-center gap-1 pr-1">
-                <button
-                  onClick={() => setCollapsed((c) => ({ ...c, [workspace.id]: !c[workspace.id] }))}
-                  className="flex flex-1 items-center gap-1 rounded px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 hover:bg-gray-200/60"
-                >
-                  {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
-                  <span className="truncate">{workspace.name}</span>
-                </button>
-                <MembersPopover workspace={workspace} currentUserId={currentUserId} />
-              </div>
-
-              {!isCollapsed && (
-                <div className="mt-0.5 space-y-0.5 pl-3">
-                  {workspace.boards.map((board) => {
-                    const active = params?.boardId === board.id;
-                    return (
-                      <div key={board.id} className="group flex items-center">
-                        <Link
-                          href={`/board/${board.id}`}
-                          className={`block flex-1 truncate rounded px-2 py-1.5 text-sm ${
-                            active ? 'bg-[#e6f1fd] font-medium text-[#0073ea]' : 'text-gray-700 hover:bg-gray-200/60'
-                          }`}
-                        >
-                          {board.name}
-                        </Link>
-                        {canEdit && (
-                          <BoardMenu
-                            onDuplicate={() => handleDuplicateBoard(board.id)}
-                            onDelete={() => handleDeleteBoard(board.id)}
-                            canDelete={isWorkspaceOwner}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {canEdit && (
-                    <NewBoardMenu
-                      disabled={isPending}
-                      onCreateBlank={() => handleCreateBlankBoard(workspace.id, workspace.boards.length)}
-                      onCreateFromTemplate={(templateId) =>
-                        handleCreateFromTemplate(workspace.id, workspace.boards.length, templateId)
-                      }
-                    />
-                  )}
+        <nav className="flex-1 overflow-y-auto px-2 py-3">
+          {workspaces.map((workspace) => {
+            const isCollapsed = collapsed[workspace.id];
+            const myMembership = workspace.members.find((m) => m.user_id === currentUserId);
+            const canEdit = myMembership?.role !== 'viewer';
+            const isWorkspaceOwner = myMembership?.role === 'owner';
+            return (
+              <div key={workspace.id} className="mb-3">
+                <div className="flex items-center gap-1 pr-1">
+                  <button
+                    onClick={() => setCollapsed((c) => ({ ...c, [workspace.id]: !c[workspace.id] }))}
+                    className="flex flex-1 items-center gap-1 rounded px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 hover:bg-gray-200/60"
+                  >
+                    {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                    <span className="truncate">{workspace.name}</span>
+                  </button>
+                  <MembersPopover workspace={workspace} currentUserId={currentUserId} />
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </nav>
 
-      <form action={signOut} className="border-t border-gray-200 px-2 py-2">
-        <button
-          type="submit"
-          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200/60"
-        >
-          <LogOut size={14} />
-          Sign out
-        </button>
-      </form>
-    </aside>
+                {!isCollapsed && (
+                  <div className="mt-0.5 space-y-0.5 pl-3">
+                    {workspace.boards.map((board) => {
+                      const active = params?.boardId === board.id;
+                      return (
+                        <div key={board.id} className="group flex items-center">
+                          <Link
+                            href={`/board/${board.id}`}
+                            onClick={() => setMobileOpen(false)}
+                            className={`block flex-1 truncate rounded px-2 py-1.5 text-sm ${
+                              active ? 'bg-[#e6f1fd] font-medium text-[#0073ea]' : 'text-gray-700 hover:bg-gray-200/60'
+                            }`}
+                          >
+                            {board.name}
+                          </Link>
+                          {canEdit && (
+                            <BoardMenu
+                              onDuplicate={() => handleDuplicateBoard(board.id)}
+                              onDelete={() => handleDeleteBoard(board.id)}
+                              canDelete={isWorkspaceOwner}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {canEdit && (
+                      <NewBoardMenu
+                        disabled={isPending}
+                        onCreateBlank={() => handleCreateBlankBoard(workspace.id, workspace.boards.length)}
+                        onCreateFromTemplate={(templateId) =>
+                          handleCreateFromTemplate(workspace.id, workspace.boards.length, templateId)
+                        }
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+
+        <form action={signOut} className="border-t border-gray-200 px-2 py-2">
+          <button
+            type="submit"
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-gray-500 hover:bg-gray-200/60"
+          >
+            <LogOut size={14} />
+            Sign out
+          </button>
+        </form>
+      </aside>
+    </>
   );
 }
 

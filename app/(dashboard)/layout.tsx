@@ -23,7 +23,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex h-screen">
       {!profile?.full_name && <ProfileNameGate email={user.email ?? ''} />}
       <Sidebar workspaces={workspaces} currentUserId={user.id} />
-      <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
+      {/* pt-12 reserves room for Sidebar's floating mobile menu button so it
+          never overlaps page content (e.g. a board's title sits right at the
+          top) — not needed once the sidebar is always visible at md+. */}
+      <main className="flex flex-1 flex-col overflow-hidden pt-12 md:pt-0">{children}</main>
     </div>
   );
 }
