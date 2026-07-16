@@ -6,8 +6,8 @@ export const MIN_COLUMN_WIDTH = 80;
 
 const HANDLE_WIDTH = 36;
 const ADD_COLUMN_WIDTH = 44;
-const ITEM_MIN_WIDTH = 220;
-const ITEM_MIN_WIDTH_COMPACT = 150;
+export const ITEM_MIN_WIDTH = 220;
+export const ITEM_MIN_WIDTH_COMPACT = 150;
 
 export function columnWidth(column: Column, compact = false): number {
   if (column.options.width != null) return column.options.width;

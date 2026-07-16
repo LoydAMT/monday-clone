@@ -440,12 +440,20 @@ export function BoardView({
       return;
     }
     if (!viewContainerRef.current) return;
+    // Kanban/Gantt each scroll horizontally inside their own nested div, not
+    // viewContainerRef itself (which never overflows), so capturing
+    // viewContainerRef directly only ever grabbed whatever was currently
+    // visible in the clipped viewport. The actual scrolling element is
+    // marked with data-export-root — its scrollWidth/scrollHeight reflects
+    // the true full content size.
+    const exportNode =
+      viewContainerRef.current.querySelector<HTMLElement>('[data-export-root]') ?? viewContainerRef.current;
     setExporting(true);
     try {
       if (view === 'gantt') {
-        await exportNodeAsPdf(viewContainerRef.current, `${safeName}-gantt.pdf`);
+        await exportNodeAsPdf(exportNode, `${safeName}-gantt.pdf`);
       } else {
-        await exportNodeAsPng(viewContainerRef.current, `${safeName}-${view}.png`);
+        await exportNodeAsPng(exportNode, `${safeName}-${view}.png`);
       }
     } finally {
       setExporting(false);

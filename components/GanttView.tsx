@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValue, Column, Group, Item, TimelineValue } from '@/types/database';
 import { addDays, computeDateRange, daysBetween, formatDayLabel, formatDayNumber, isMonthStart, DAY_WIDTH, today } from '@/lib/gantt';
+import { ColumnResizeHandle } from './ColumnResizeHandle';
 
-const LEFT_WIDTH = 220;
+const DEFAULT_LEFT_WIDTH = 220;
 const ROW_HEIGHT = 36;
 
 export function GanttView({
@@ -22,6 +23,44 @@ export function GanttView({
 }) {
   const timelineColumn = columns.find((c) => c.type === 'timeline');
   const statusColumn = columns.find((c) => c.type === 'status');
+  const [leftWidth, setLeftWidth] = useState(DEFAULT_LEFT_WIDTH);
+
+  // Click-and-drag panning: mousedown anywhere in the chart (bars/buttons
+  // stop propagation on their own mousedown, so this only fires for empty
+  // chart background). Listens on window rather than the scroll container
+  // so a drag that leaves the container mid-move (fast mouse) still tracks.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef<{ startX: number; startScrollLeft: number; moved: boolean } | null>(null);
+  const [isPanning, setIsPanning] = useState(false);
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      const pan = panRef.current;
+      const el = scrollRef.current;
+      if (!pan || !el) return;
+      const delta = e.clientX - pan.startX;
+      if (!pan.moved && Math.abs(delta) > 4) {
+        pan.moved = true;
+        setIsPanning(true);
+      }
+      if (pan.moved) el.scrollLeft = pan.startScrollLeft - delta;
+    }
+    function handleMouseUp() {
+      panRef.current = null;
+      setIsPanning(false);
+    }
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  function handlePanStart(e: React.MouseEvent) {
+    if (e.button !== 0) return;
+    panRef.current = { startX: e.clientX, startScrollLeft: scrollRef.current?.scrollLeft ?? 0, moved: false };
+  }
 
   const range = useMemo(
     () => (timelineColumn ? computeDateRange(items, timelineColumn.id) : { start: today(), end: today() }),
@@ -43,7 +82,7 @@ export function GanttView({
   }
 
   const todayOffset = daysBetween(range.start, today()) * DAY_WIDTH;
-  const chartWidth = LEFT_WIDTH + totalDays * DAY_WIDTH;
+  const chartWidth = leftWidth + totalDays * DAY_WIDTH;
 
   function statusColor(item: Item): string {
     if (!statusColumn) return '#0073ea';
@@ -53,16 +92,32 @@ export function GanttView({
   }
 
   return (
-    <div className="overflow-x-auto px-6 py-4">
+    <div
+      ref={scrollRef}
+      data-export-root
+      onMouseDown={handlePanStart}
+      className={`overflow-x-auto px-6 py-4 select-none ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+    >
       <div className="relative" style={{ width: chartWidth }}>
         <div
           className="pointer-events-none absolute bottom-0 top-0 z-0 w-px bg-red-300"
-          style={{ left: LEFT_WIDTH + todayOffset }}
+          style={{ left: leftWidth + todayOffset }}
         />
 
         <div className="sticky top-0 z-20 flex border-b border-gray-200 bg-gray-50 text-[10px] font-semibold text-gray-500">
-          <div className="sticky left-0 z-30 shrink-0 border-r border-gray-200 bg-gray-50 px-2 py-2" style={{ width: LEFT_WIDTH }}>
-            Item
+          <div
+            className="sticky left-0 z-30 shrink-0 border-r border-gray-200 bg-gray-50 px-2 py-2"
+            style={{ width: leftWidth }}
+          >
+            <div className="relative h-full">
+              Item
+              <ColumnResizeHandle
+                width={leftWidth}
+                onResizeStart={() => {}}
+                onResizeMove={setLeftWidth}
+                onResizeEnd={setLeftWidth}
+              />
+            </div>
           </div>
           {days.map((d, i) => (
             <div key={d} className="shrink-0 border-l border-gray-100 py-2 text-center" style={{ width: DAY_WIDTH }}>
@@ -82,7 +137,7 @@ export function GanttView({
           return (
             <div key={group.id}>
               <div
-                className="sticky left-0 z-10 flex w-fit items-center gap-2 border-t border-gray-100 bg-white py-1.5 pl-2 text-xs font-semibold"
+                className="sticky left-0 z-20 flex w-fit items-center gap-2 border-t border-gray-100 bg-white py-1.5 pl-2 text-xs font-semibold"
                 style={{ color: group.color }}
               >
                 <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: group.color }} />
@@ -95,8 +150,8 @@ export function GanttView({
                   <div key={item.id} className="flex border-t border-gray-50" style={{ height: ROW_HEIGHT }}>
                     <button
                       onClick={() => onOpenItem(item.id)}
-                      className="sticky left-0 z-10 flex shrink-0 items-center truncate border-r border-gray-200 bg-white px-2 text-left text-xs text-gray-700 hover:bg-gray-50"
-                      style={{ width: LEFT_WIDTH }}
+                      className="sticky left-0 z-20 flex shrink-0 items-center truncate border-r border-gray-200 bg-white px-2 text-left text-xs text-gray-700 hover:bg-gray-50"
+                      style={{ width: leftWidth }}
                     >
                       <span className="truncate">{item.title}</span>
                     </button>
@@ -150,6 +205,11 @@ function GanttBar({
 
   function beginDrag(e: React.PointerEvent, mode: DragMode) {
     e.stopPropagation();
+    // Also suppress the browser's compatibility mousedown for this pointer
+    // interaction — otherwise it'd still bubble to the chart's own
+    // mousedown-based pan handler and scroll the container while a bar is
+    // being moved/resized at the same time.
+    e.preventDefault();
     (e.target as Element).setPointerCapture(e.pointerId);
     movedRef.current = false;
     dragRef.current = { mode, startX: e.clientX, origStart: value.start, origEnd: value.end };

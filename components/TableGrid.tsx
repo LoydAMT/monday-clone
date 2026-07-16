@@ -20,7 +20,7 @@ import { AddColumnButton } from './AddColumnButton';
 import { ColumnHeaderMenu } from './ColumnHeaderMenu';
 import { ColumnResizeHandle } from './ColumnResizeHandle';
 import type { SortState } from './BoardToolbar';
-import { columnWidth, handleTrackWidth, headerGridTemplate, totalGridWidth } from '@/lib/grid';
+import { columnWidth, handleTrackWidth, headerGridTemplate, ITEM_MIN_WIDTH, totalGridWidth } from '@/lib/grid';
 import { logActivity, updateGroupPositions, updateItemPositions, type ItemPositionUpdate } from '@/lib/mutations';
 import { useMediaQuery } from '@/lib/use-media-query';
 
@@ -107,6 +107,12 @@ export function TableGrid({
   }
 
   const narrowItemWidth = compact && itemNarrowed ? Math.round(window.innerWidth / 5) : undefined;
+
+  // Desktop drag-resize of the Item column itself — separate from the
+  // mobile narrow-on-scroll behavior above (narrowItemWidth wins when both
+  // could apply, since that only happens in the compact/mobile context).
+  const [itemColumnWidth, setItemColumnWidth] = useState<number | undefined>(undefined);
+  const effectiveItemWidth = narrowItemWidth ?? itemColumnWidth;
 
   // Keep this array's length constant across renders (dnd-kit's internal
   // effects use it as a dependency list) — gating is done per-element via
@@ -278,16 +284,26 @@ export function TableGrid({
           <div
             className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500 max-sm:text-[10px]"
             style={{
-              gridTemplateColumns: headerGridTemplate(effectiveColumns, compact, narrowItemWidth),
-              width: totalGridWidth(effectiveColumns, compact, narrowItemWidth),
+              gridTemplateColumns: headerGridTemplate(effectiveColumns, compact, effectiveItemWidth),
+              width: totalGridWidth(effectiveColumns, compact, effectiveItemWidth),
             }}
           >
             <div className="sticky left-0 z-10 bg-gray-50" />
             <div
               className="sticky z-10 truncate bg-gray-50 px-2 py-2"
-              style={{ left: handleTrackWidth(narrowItemWidth) }}
+              style={{ left: handleTrackWidth(effectiveItemWidth) }}
             >
-              Item
+              <div className="relative h-full">
+                Item
+                {!compact && (
+                  <ColumnResizeHandle
+                    width={itemColumnWidth ?? ITEM_MIN_WIDTH}
+                    onResizeStart={() => {}}
+                    onResizeMove={setItemColumnWidth}
+                    onResizeEnd={setItemColumnWidth}
+                  />
+                )}
+              </div>
             </div>
             {columns.map((column) => (
               <div key={column.id} className="group relative flex items-center border-l border-gray-200 hover:bg-gray-100">
@@ -330,7 +346,7 @@ export function TableGrid({
                   group={group}
                   columns={effectiveColumns}
                   compact={compact}
-                  itemWidth={narrowItemWidth}
+                  itemWidth={effectiveItemWidth}
                   items={itemsByGroup[group.id] ?? []}
                   orderingLocked={orderingLocked}
                   members={members}

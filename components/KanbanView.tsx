@@ -113,7 +113,7 @@ export function KanbanView({
           </div>
         )}
 
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex gap-4 overflow-x-auto pb-4" data-export-root>
           {columnOrder.map((id) => {
             const label = id === NO_STATUS_ID ? '' : id;
             const bucket = buckets.find((b) => b.label === label);
