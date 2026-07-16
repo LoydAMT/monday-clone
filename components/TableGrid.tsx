@@ -290,20 +290,18 @@ export function TableGrid({
           >
             <div className="sticky left-0 z-10 bg-gray-50" />
             <div
-              className="sticky z-10 truncate bg-gray-50 px-2 py-2"
+              className="sticky z-10 flex items-center truncate bg-gray-50 px-2 py-2"
               style={{ left: handleTrackWidth(effectiveItemWidth) }}
             >
-              <div className="relative h-full">
-                Item
-                {!compact && (
-                  <ColumnResizeHandle
-                    width={itemColumnWidth ?? ITEM_MIN_WIDTH}
-                    onResizeStart={() => {}}
-                    onResizeMove={setItemColumnWidth}
-                    onResizeEnd={setItemColumnWidth}
-                  />
-                )}
-              </div>
+              Item
+              {!compact && (
+                <ColumnResizeHandle
+                  width={itemColumnWidth ?? ITEM_MIN_WIDTH}
+                  onResizeStart={() => {}}
+                  onResizeMove={setItemColumnWidth}
+                  onResizeEnd={setItemColumnWidth}
+                />
+              )}
             </div>
             {columns.map((column) => (
               <div key={column.id} className="group relative flex items-center border-l border-gray-200 hover:bg-gray-100">

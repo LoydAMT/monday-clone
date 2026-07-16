@@ -71,6 +71,16 @@ export function BoardView({
   const [view, setView] = useState<BoardViewMode>('table');
   const searchParams = useSearchParams();
   const [openItemId, setOpenItemId] = useState<string | null>(() => searchParams.get('item'));
+
+  // Clicking a mention/assignment notification for an item on the board
+  // you're already viewing only changes the `item` query param — Next.js
+  // reuses this mounted component rather than remounting it, so the
+  // useState initializer above never re-runs on its own. Re-sync whenever
+  // the param changes so the deep link still opens the modal in that case.
+  useEffect(() => {
+    const id = searchParams.get('item');
+    if (id) setOpenItemId(id);
+  }, [searchParams]);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const [sort, setSort] = useState<SortState | null>(null);
