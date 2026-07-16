@@ -54,7 +54,7 @@ export function ItemRow({
     opacity: isDragging ? 0.4 : 1,
   };
 
-  // Once the Item column has locked down to its narrow mobile width, the
+  // Once the Item column locked down to its narrow mobile width, the
   // move handle and open-item arrow eat most of that width themselves,
   // leaving barely any of it for the title — drop both so the title gets
   // the full narrow column instead of a sliver of it. A desktop drag-resize
