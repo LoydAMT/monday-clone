@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Maximize2, Trash2 } from 'lucide-react';
@@ -8,6 +9,7 @@ import { Cell } from './cells/Cell';
 import { getCellValue } from '@/lib/cell-helpers';
 import { handleTrackWidth, rowGridTemplate, totalGridWidth } from '@/lib/grid';
 import { TextCell } from './cells/TextCell';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 
 export function ItemRow({
   item,
@@ -62,6 +64,8 @@ export function ItemRow({
   const statusColumn = columns.find((c) => c.type === 'status');
   const statusValue = statusColumn ? getCellValue(statusColumn, item) : null;
   const isItemDone = statusValue?.type === 'status' && statusValue.value === 'Done';
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
     <div
@@ -129,7 +133,7 @@ export function ItemRow({
       {canEdit ? (
         <button
           type="button"
-          onClick={() => onDeleteItem?.(item.id)}
+          onClick={() => setConfirmingDelete(true)}
           className="flex items-center justify-center text-gray-300 opacity-100 md:opacity-0 md:hover:text-red-500 md:group-hover:opacity-100"
           title="Delete item"
         >
@@ -137,6 +141,18 @@ export function ItemRow({
         </button>
       ) : (
         <div />
+      )}
+
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="Delete item?"
+          message={`"${item.title || 'This item'}" will be moved to trash. You can restore it from there.`}
+          onConfirm={() => {
+            setConfirmingDelete(false);
+            onDeleteItem?.(item.id);
+          }}
+          onCancel={() => setConfirmingDelete(false)}
+        />
       )}
     </div>
   );

@@ -1,6 +1,12 @@
 import type { Item } from '@/types/database';
 
-export const DAY_WIDTH = 44;
+// The chart picks a day width between these two bounds, based on how many
+// days the project spans vs. how much viewport is available — a fixed width
+// meant most rows in a multi-month project sat outside whatever narrow date
+// slice was currently scrolled into view, showing as long stretches of blank
+// row instead of visible bars.
+export const MAX_DAY_WIDTH = 44;
+export const MIN_DAY_WIDTH = 18;
 
 function parseDate(dateStr: string): Date {
   return new Date(dateStr + 'T00:00:00');

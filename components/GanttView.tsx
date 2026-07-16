@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CellValue, Column, Group, Item, TimelineValue } from '@/types/database';
-import { addDays, computeDateRange, daysBetween, formatDayLabel, formatDayNumber, isMonthStart, DAY_WIDTH, today } from '@/lib/gantt';
+import { addDays, computeDateRange, daysBetween, formatDayLabel, formatDayNumber, isMonthStart, MAX_DAY_WIDTH, MIN_DAY_WIDTH, today } from '@/lib/gantt';
 import { ColumnResizeHandle } from './ColumnResizeHandle';
 
 const DEFAULT_LEFT_WIDTH = 220;
@@ -32,6 +32,20 @@ export function GanttView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const panRef = useRef<{ startX: number; startScrollLeft: number; moved: boolean } | null>(null);
   const [isPanning, setIsPanning] = useState(false);
+
+  // Tracks the scroll container's visible width so dayWidth (below) can
+  // shrink to fit a long project's whole date range into view, rather than
+  // most rows sitting outside whatever narrow slice happens to be scrolled
+  // into frame.
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => setContainerWidth(entries[0].contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
@@ -81,8 +95,17 @@ export function GanttView({
     );
   }
 
-  const todayOffset = daysBetween(range.start, today()) * DAY_WIDTH;
-  const chartWidth = leftWidth + totalDays * DAY_WIDTH;
+  // Fit the whole date range into the available width when it's shorter than
+  // MAX_DAY_WIDTH per day would need, down to MIN_DAY_WIDTH before falling
+  // back to horizontal scroll — before containerWidth's first measurement
+  // (0) this evaluates to MIN_DAY_WIDTH rather than flashing MAX_DAY_WIDTH.
+  const availableChartWidth = Math.max(0, containerWidth - leftWidth);
+  const dayWidth = totalDays > 0
+    ? Math.min(MAX_DAY_WIDTH, Math.max(MIN_DAY_WIDTH, availableChartWidth / totalDays))
+    : MAX_DAY_WIDTH;
+
+  const todayOffset = daysBetween(range.start, today()) * dayWidth;
+  const chartWidth = leftWidth + totalDays * dayWidth;
 
   function statusColor(item: Item): string {
     if (!statusColumn) return '#0073ea';
@@ -120,7 +143,7 @@ export function GanttView({
             </div>
           </div>
           {days.map((d, i) => (
-            <div key={d} className="shrink-0 border-l border-gray-100 py-2 text-center" style={{ width: DAY_WIDTH }}>
+            <div key={d} className="shrink-0 border-l border-gray-100 py-2 text-center" style={{ width: dayWidth }}>
               {i === 0 || isMonthStart(d) ? formatDayLabel(d) : formatDayNumber(d)}
             </div>
           ))}
@@ -156,10 +179,11 @@ export function GanttView({
                     >
                       <span className="truncate">{item.title}</span>
                     </button>
-                    <div className="relative" style={{ width: totalDays * DAY_WIDTH }}>
+                    <div className="relative" style={{ width: totalDays * dayWidth }}>
                       <GanttBar
                         value={value}
                         rangeStart={range.start}
+                        dayWidth={dayWidth}
                         color={statusColor(item)}
                         label={item.title}
                         onCommit={(start, end) =>
@@ -184,6 +208,7 @@ type DragMode = 'move' | 'resize-start' | 'resize-end';
 function GanttBar({
   value,
   rangeStart,
+  dayWidth,
   color,
   label,
   onCommit,
@@ -191,6 +216,7 @@ function GanttBar({
 }: {
   value: TimelineValue;
   rangeStart: string;
+  dayWidth: number;
   color: string;
   label: string;
   onCommit: (start: string, end: string) => void;
@@ -201,8 +227,8 @@ function GanttBar({
   const movedRef = useRef(false);
 
   const current = preview ?? value;
-  const left = daysBetween(rangeStart, current.start) * DAY_WIDTH;
-  const width = (daysBetween(current.start, current.end) + 1) * DAY_WIDTH;
+  const left = daysBetween(rangeStart, current.start) * dayWidth;
+  const width = (daysBetween(current.start, current.end) + 1) * dayWidth;
 
   function beginDrag(e: React.PointerEvent, mode: DragMode) {
     e.stopPropagation();
@@ -219,7 +245,7 @@ function GanttBar({
   function handlePointerMove(e: React.PointerEvent) {
     const drag = dragRef.current;
     if (!drag) return;
-    const deltaDays = Math.round((e.clientX - drag.startX) / DAY_WIDTH);
+    const deltaDays = Math.round((e.clientX - drag.startX) / dayWidth);
     if (deltaDays !== 0) movedRef.current = true;
 
     if (drag.mode === 'move') {
