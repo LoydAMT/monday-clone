@@ -150,6 +150,7 @@ export function GanttView({
                   <div key={item.id} className="flex border-t border-gray-50" style={{ height: ROW_HEIGHT }}>
                     <button
                       onClick={() => onOpenItem(item.id)}
+                      title={item.title}
                       className="sticky left-0 z-20 flex shrink-0 items-center truncate border-r border-gray-200 bg-white px-2 text-left text-xs text-gray-700 hover:bg-gray-50"
                       style={{ width: leftWidth }}
                     >
@@ -253,6 +254,7 @@ function GanttBar({
   return (
     <div
       style={{ left, width, backgroundColor: color }}
+      title={label}
       className="absolute top-1 bottom-1 z-10 flex cursor-grab items-center rounded px-2 text-[11px] font-medium text-white active:cursor-grabbing"
       onPointerDown={(e) => beginDrag(e, 'move')}
       onPointerMove={handlePointerMove}

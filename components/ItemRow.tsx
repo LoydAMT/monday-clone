@@ -14,6 +14,7 @@ export function ItemRow({
   columns,
   compact = false,
   itemWidth,
+  narrowed = false,
   orderingLocked = false,
   members = [],
   attachmentCounts = {},
@@ -28,6 +29,7 @@ export function ItemRow({
   columns: Column[];
   compact?: boolean;
   itemWidth?: number;
+  narrowed?: boolean;
   orderingLocked?: boolean;
   members?: MemberProfile[];
   attachmentCounts?: Record<string, number>;
@@ -53,9 +55,10 @@ export function ItemRow({
   // Once the Item column has locked down to its narrow mobile width, the
   // move handle and open-item arrow eat most of that width themselves,
   // leaving barely any of it for the title — drop both so the title gets
-  // the full narrow column instead of a sliver of it.
-  const narrowed = itemWidth !== undefined;
-
+  // the full narrow column instead of a sliver of it. A desktop drag-resize
+  // of the Item column also sets `itemWidth` but should never hide these
+  // buttons, which is why `narrowed` arrives as its own prop instead of
+  // being inferred from itemWidth being defined.
   const statusColumn = columns.find((c) => c.type === 'status');
   const statusValue = statusColumn ? getCellValue(statusColumn, item) : null;
   const isItemDone = statusValue?.type === 'status' && statusValue.value === 'Done';
@@ -65,8 +68,8 @@ export function ItemRow({
       ref={setNodeRef}
       style={{
         ...style,
-        gridTemplateColumns: rowGridTemplate(columns, compact, itemWidth),
-        width: totalGridWidth(columns, compact, itemWidth),
+        gridTemplateColumns: rowGridTemplate(columns, compact, itemWidth, narrowed),
+        width: totalGridWidth(columns, compact, itemWidth, narrowed),
       }}
       className="group grid border-t border-gray-100 bg-white hover:bg-blue-50/30"
     >
@@ -84,7 +87,7 @@ export function ItemRow({
 
       <div
         className="sticky z-10 flex items-center gap-1 border-r border-gray-100 bg-white px-1 text-sm text-gray-800 group-hover:bg-blue-50/30"
-        style={{ left: handleTrackWidth(itemWidth) }}
+        style={{ left: handleTrackWidth(narrowed) }}
       >
         {!narrowed && (
           <button

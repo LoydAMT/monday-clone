@@ -38,6 +38,7 @@ export function TextCell({
       <button
         type="button"
         onClick={startEditing}
+        title={value || undefined}
         className="h-full w-full truncate px-2 text-left text-xs text-gray-700 max-sm:text-[10px] hover:bg-gray-50"
       >
         {value ? <MentionText text={value} /> : <span className="text-gray-300">Empty</span>}

@@ -13,6 +13,7 @@ export function GroupSection({
   columns,
   compact = false,
   itemWidth,
+  narrowed = false,
   items,
   orderingLocked = false,
   members = [],
@@ -30,6 +31,7 @@ export function GroupSection({
   columns: Column[];
   compact?: boolean;
   itemWidth?: number;
+  narrowed?: boolean;
   items: Item[];
   orderingLocked?: boolean;
   members?: MemberProfile[];
@@ -105,6 +107,7 @@ export function GroupSection({
                 columns={columns}
                 compact={compact}
                 itemWidth={itemWidth}
+                narrowed={narrowed}
                 orderingLocked={orderingLocked}
                 members={members}
                 attachmentCounts={attachmentCounts}
@@ -127,7 +130,7 @@ export function GroupSection({
             </button>
           )}
 
-          <GroupSummaryRow columns={columns} compact={compact} itemWidth={itemWidth} items={items} />
+          <GroupSummaryRow columns={columns} compact={compact} itemWidth={itemWidth} narrowed={narrowed} items={items} />
         </div>
       )}
     </div>

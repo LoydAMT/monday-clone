@@ -6,25 +6,27 @@ export function GroupSummaryRow({
   columns,
   compact = false,
   itemWidth,
+  narrowed = false,
   items,
 }: {
   columns: Column[];
   compact?: boolean;
   itemWidth?: number;
+  narrowed?: boolean;
   items: Item[];
 }) {
   return (
     <div
       className="grid rounded-b-md border-t border-gray-200 bg-gray-50/70"
       style={{
-        gridTemplateColumns: rowGridTemplate(columns, compact, itemWidth),
-        width: totalGridWidth(columns, compact, itemWidth),
+        gridTemplateColumns: rowGridTemplate(columns, compact, itemWidth, narrowed),
+        width: totalGridWidth(columns, compact, itemWidth, narrowed),
       }}
     >
       <div className="sticky left-0 z-10 bg-gray-50" />
       <div
         className="sticky z-10 bg-gray-50 px-2 py-1.5 text-[11px] font-medium text-gray-400 max-sm:text-[9px]"
-        style={{ left: handleTrackWidth(itemWidth) }}
+        style={{ left: handleTrackWidth(narrowed) }}
       >
         {items.length} item{items.length === 1 ? '' : 's'}
       </div>

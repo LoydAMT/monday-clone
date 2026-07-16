@@ -113,6 +113,7 @@ export function TableGrid({
   // could apply, since that only happens in the compact/mobile context).
   const [itemColumnWidth, setItemColumnWidth] = useState<number | undefined>(undefined);
   const effectiveItemWidth = narrowItemWidth ?? itemColumnWidth;
+  const mobileNarrowed = narrowItemWidth !== undefined;
 
   // Keep this array's length constant across renders (dnd-kit's internal
   // effects use it as a dependency list) — gating is done per-element via
@@ -284,14 +285,14 @@ export function TableGrid({
           <div
             className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500 max-sm:text-[10px]"
             style={{
-              gridTemplateColumns: headerGridTemplate(effectiveColumns, compact, effectiveItemWidth),
-              width: totalGridWidth(effectiveColumns, compact, effectiveItemWidth),
+              gridTemplateColumns: headerGridTemplate(effectiveColumns, compact, effectiveItemWidth, mobileNarrowed),
+              width: totalGridWidth(effectiveColumns, compact, effectiveItemWidth, mobileNarrowed),
             }}
           >
             <div className="sticky left-0 z-10 bg-gray-50" />
             <div
               className="sticky z-10 flex items-center truncate bg-gray-50 px-2 py-2"
-              style={{ left: handleTrackWidth(effectiveItemWidth) }}
+              style={{ left: handleTrackWidth(mobileNarrowed) }}
             >
               Item
               {!compact && (
@@ -345,6 +346,7 @@ export function TableGrid({
                   columns={effectiveColumns}
                   compact={compact}
                   itemWidth={effectiveItemWidth}
+                  narrowed={mobileNarrowed}
                   items={itemsByGroup[group.id] ?? []}
                   orderingLocked={orderingLocked}
                   members={members}
