@@ -78,7 +78,7 @@ export function AttachmentsList({
           <span className="shrink-0 text-[10px] text-gray-400">{formatFileSize(a.file_size)}</span>
           <button
             onClick={() => handleDelete(a)}
-            className="shrink-0 text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+            className="shrink-0 text-gray-300 opacity-100 md:opacity-0 md:hover:text-red-500 md:group-hover:opacity-100"
           >
             <Trash2 size={12} />
           </button>

@@ -1,15 +1,31 @@
 import type { Column, Item } from '@/types/database';
 import { getCellValue } from '@/lib/cell-helpers';
-import { rowGridTemplate } from '@/lib/grid';
+import { handleTrackWidth, rowGridTemplate, totalGridWidth } from '@/lib/grid';
 
-export function GroupSummaryRow({ columns, items }: { columns: Column[]; items: Item[] }) {
+export function GroupSummaryRow({
+  columns,
+  compact = false,
+  itemWidth,
+  items,
+}: {
+  columns: Column[];
+  compact?: boolean;
+  itemWidth?: number;
+  items: Item[];
+}) {
   return (
     <div
       className="grid rounded-b-md border-t border-gray-200 bg-gray-50/70"
-      style={{ gridTemplateColumns: rowGridTemplate(columns) }}
+      style={{
+        gridTemplateColumns: rowGridTemplate(columns, compact, itemWidth),
+        width: totalGridWidth(columns, compact, itemWidth),
+      }}
     >
       <div className="sticky left-0 z-10 bg-gray-50" />
-      <div className="sticky left-[36px] z-10 bg-gray-50 px-2 py-1.5 text-[11px] font-medium text-gray-400">
+      <div
+        className="sticky z-10 bg-gray-50 px-2 py-1.5 text-[11px] font-medium text-gray-400 max-sm:text-[9px]"
+        style={{ left: handleTrackWidth(itemWidth) }}
+      >
         {items.length} item{items.length === 1 ? '' : 's'}
       </div>
       {columns.map((column) => (

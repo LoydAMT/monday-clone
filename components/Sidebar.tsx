@@ -86,8 +86,18 @@ export function Sidebar({
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-gray-200 bg-[#f6f7fb] transition-transform duration-200 md:static md:z-auto md:translate-x-0 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        // The mobile drawer styles (fixed/z-50/translate) are all scoped
+        // under max-md: so they only ever apply below the md breakpoint —
+        // at md+ none of them match at all, rather than relying on a md:
+        // override to cancel them back out. That "apply then walk back"
+        // approach previously left position:fixed + an active translateX
+        // transform in effect on desktop in some cases (a transform other
+        // than none creates a stacking context, which was trapping
+        // NotificationBell's dropdown and letting the table's sticky group
+        // headers paint over the whole sidebar) — scoping to max-md: makes
+        // that class of bug structurally impossible instead of walking it back.
+        className={`flex h-screen w-64 flex-col border-r border-gray-200 bg-[#f6f7fb] transition-transform duration-200 max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-50 ${
+          mobileOpen ? 'max-md:translate-x-0' : 'max-md:-translate-x-full'
         }`}
       >
         <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3.5">
@@ -413,7 +423,7 @@ function BoardMenu({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative shrink-0 opacity-0 group-hover:opacity-100">
+    <div ref={ref} className="relative shrink-0 opacity-100 md:opacity-0 md:group-hover:opacity-100">
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex h-6 w-6 items-center justify-center rounded text-gray-400 hover:bg-gray-200 hover:text-gray-600"

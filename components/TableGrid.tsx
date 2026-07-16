@@ -20,8 +20,9 @@ import { AddColumnButton } from './AddColumnButton';
 import { ColumnHeaderMenu } from './ColumnHeaderMenu';
 import { ColumnResizeHandle } from './ColumnResizeHandle';
 import type { SortState } from './BoardToolbar';
-import { columnWidth, headerGridTemplate } from '@/lib/grid';
+import { columnWidth, handleTrackWidth, headerGridTemplate, totalGridWidth } from '@/lib/grid';
 import { logActivity, updateGroupPositions, updateItemPositions, type ItemPositionUpdate } from '@/lib/mutations';
+import { useMediaQuery } from '@/lib/use-media-query';
 
 type ByGroup = Record<string, Item[]>;
 
@@ -88,6 +89,24 @@ export function TableGrid({
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
   const [resizing, setResizing] = useState<{ columnId: string; width: number } | null>(null);
+  const compact = useMediaQuery('(max-width: 639px)');
+
+  // On mobile, the Item column starts wide (readable titles) but locks down
+  // to a narrow 1/5-of-screen width as soon as you've scrolled the table —
+  // trading title readability for more visible data columns once you've
+  // shown intent to look at them. Boolean state means React only re-renders
+  // at the moment the threshold is actually crossed (setState no-ops on an
+  // unchanged value), not continuously on every scroll pixel.
+  const [itemNarrowed, setItemNarrowed] = useState(false);
+  const NARROW_SCROLL_THRESHOLD = 24;
+
+  function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    if (!compact) return;
+    const shouldNarrow = e.currentTarget.scrollLeft > NARROW_SCROLL_THRESHOLD;
+    setItemNarrowed((prev) => (prev === shouldNarrow ? prev : shouldNarrow));
+  }
+
+  const narrowItemWidth = compact && itemNarrowed ? Math.round(window.innerWidth / 5) : undefined;
 
   // Keep this array's length constant across renders (dnd-kit's internal
   // effects use it as a dependency list) — gating is done per-element via
@@ -242,71 +261,91 @@ export function TableGrid({
         {/* Header and rows share one horizontal scroll container so they move
             together — enough columns (e.g. adding Progress on top of Status/
             People/Timeline/Link/Date/Files) push total width past the
-            viewport, and without this the extra columns were unreachable. */}
-        <div className="overflow-x-auto">
-          <div className="min-w-fit">
+            viewport, and without this the extra columns were unreachable.
+            Each grid below gets an explicit pixel width (not just a
+            min-w-fit wrapper) — fit-content sizing for a CSS Grid nested in
+            a scroll container proved unreliable on some mobile browsers,
+            squeezing columns to fit instead of triggering a scrollbar.
+            No CSS scroll-snap here (deliberately) — snap-mandatory combined
+            with the Item column's own position:sticky is unreliable (sticky
+            + scroll-snap-align is a known rough edge across browsers), and it
+            fought the narrow-on-scroll logic below: mandatory snap would
+            carry you straight past the un-narrow threshold to the next
+            column's snap point, making it impossible to scroll back to the
+            wide/unlocked state. Free-scroll + the JS threshold below is what
+            actually delivers "slide, then lock." */}
+        <div className="overflow-x-auto" onScroll={handleScroll}>
+          <div
+            className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500 max-sm:text-[10px]"
+            style={{
+              gridTemplateColumns: headerGridTemplate(effectiveColumns, compact, narrowItemWidth),
+              width: totalGridWidth(effectiveColumns, compact, narrowItemWidth),
+            }}
+          >
+            <div className="sticky left-0 z-10 bg-gray-50" />
             <div
-              className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500"
-              style={{ gridTemplateColumns: headerGridTemplate(effectiveColumns) }}
+              className="sticky z-10 truncate bg-gray-50 px-2 py-2"
+              style={{ left: handleTrackWidth(narrowItemWidth) }}
             >
-              <div className="sticky left-0 z-10 bg-gray-50" />
-              <div className="sticky left-[36px] z-10 bg-gray-50 px-2 py-2">Item</div>
-              {columns.map((column) => (
-                <div key={column.id} className="group relative flex items-center border-l border-gray-200 hover:bg-gray-100">
-                  <button
-                    onClick={() => toggleSort(column.id)}
-                    className="flex min-w-0 flex-1 items-center gap-1 truncate px-2 py-2 text-left"
-                  >
-                    <span className="truncate">{column.name}</span>
-                    {sort?.columnId === column.id &&
-                      (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
-                  </button>
-                  {canEdit && (
-                    <ColumnHeaderMenu
-                      column={column}
-                      onRename={(name) => onRenameColumn?.(column.id, name)}
-                      onDelete={() => onDeleteColumn?.(column.id)}
-                    />
-                  )}
-                  {canEdit && (
-                    <ColumnResizeHandle
-                      width={columnWidth(column)}
-                      onResizeStart={() => setResizing({ columnId: column.id, width: columnWidth(column) })}
-                      onResizeMove={(width) => setResizing({ columnId: column.id, width })}
-                      onResizeEnd={(width) => {
-                        setResizing(null);
-                        onOptionsChange?.(column.id, { ...column.options, width });
-                      }}
-                    />
-                  )}
-                </div>
-              ))}
-              {canEdit ? <AddColumnButton onAdd={onAddColumn} /> : <div />}
+              Item
             </div>
-
-            <div className="mt-3">
-              <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
-                {groups.map((group) => (
-                  <GroupSection
-                    key={group.id}
-                    group={group}
-                    columns={effectiveColumns}
-                    items={itemsByGroup[group.id] ?? []}
-                    orderingLocked={orderingLocked}
-                    members={members}
-                    attachmentCounts={attachmentCounts}
-                    onCellChange={onCellChange}
-                    onOptionsChange={onOptionsChange}
-                    onTitleChange={onTitleChange}
-                    onRenameGroup={onRenameGroup}
-                    onAddItem={onAddItem}
-                    onOpenItem={onOpenItem}
-                    onDeleteItem={onDeleteItem}
-                    canEdit={canEdit}
+            {columns.map((column) => (
+              <div key={column.id} className="group relative flex items-center border-l border-gray-200 hover:bg-gray-100">
+                <button
+                  onClick={() => toggleSort(column.id)}
+                  className="flex min-w-0 flex-1 items-center gap-1 truncate px-2 py-2 text-left"
+                >
+                  <span className="truncate">{column.name}</span>
+                  {sort?.columnId === column.id &&
+                    (sort.direction === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />)}
+                </button>
+                {canEdit && (
+                  <ColumnHeaderMenu
+                    column={column}
+                    onRename={(name) => onRenameColumn?.(column.id, name)}
+                    onDelete={() => onDeleteColumn?.(column.id)}
                   />
-                ))}
-              </SortableContext>
-            </div>
+                )}
+                {canEdit && (
+                  <ColumnResizeHandle
+                    width={columnWidth(column, compact)}
+                    onResizeStart={() => setResizing({ columnId: column.id, width: columnWidth(column, compact) })}
+                    onResizeMove={(width) => setResizing({ columnId: column.id, width })}
+                    onResizeEnd={(width) => {
+                      setResizing(null);
+                      onOptionsChange?.(column.id, { ...column.options, width });
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+            {canEdit ? <AddColumnButton onAdd={onAddColumn} /> : <div />}
+          </div>
+
+          <div className="mt-3">
+            <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+              {groups.map((group) => (
+                <GroupSection
+                  key={group.id}
+                  group={group}
+                  columns={effectiveColumns}
+                  compact={compact}
+                  itemWidth={narrowItemWidth}
+                  items={itemsByGroup[group.id] ?? []}
+                  orderingLocked={orderingLocked}
+                  members={members}
+                  attachmentCounts={attachmentCounts}
+                  onCellChange={onCellChange}
+                  onOptionsChange={onOptionsChange}
+                  onTitleChange={onTitleChange}
+                  onRenameGroup={onRenameGroup}
+                  onAddItem={onAddItem}
+                  onOpenItem={onOpenItem}
+                  onDeleteItem={onDeleteItem}
+                  canEdit={canEdit}
+                />
+              ))}
+            </SortableContext>
           </div>
         </div>
 

@@ -117,6 +117,7 @@ export function ItemDetailModal({
             notifyUserIds={assignedUserIds}
             workspaceId={workspaceId}
             boardId={boardId}
+            refreshKey={item}
             onUndoableAction={onUndoableAction}
           />
         </div>

@@ -16,6 +16,9 @@ function describeActivity(activity: ActivityLog, groups: Group[]): string {
       return 'created this item';
     case 'title_changed':
       return `renamed this item from "${meta.from}" to "${meta.to}"`;
+    // 'status_changed' is the old, Status-only action name from before every
+    // column type got logged — kept so historical entries still render.
+    case 'cell_changed':
     case 'status_changed':
       return `changed ${meta.column_name} from "${meta.from || 'blank'}" to "${meta.to || 'blank'}"`;
     case 'moved_group': {
@@ -52,6 +55,11 @@ export function ItemThread({
   notifyUserIds = [],
   workspaceId,
   boardId,
+  // Any value whose reference changes when this item's data is mutated
+  // elsewhere (a cell edit while this modal is already open, for example) —
+  // itemId alone doesn't change in that case, so nothing would otherwise
+  // tell this effect there's a new activity_log row to go fetch.
+  refreshKey,
   onUndoableAction,
 }: {
   itemId: string;
@@ -60,6 +68,7 @@ export function ItemThread({
   notifyUserIds?: string[];
   workspaceId?: string;
   boardId?: string;
+  refreshKey?: unknown;
   onUndoableAction?: (message: string, onUndo: () => void) => void;
 }) {
   const memberById = new Map(members.map((m) => [m.user_id, m]));
@@ -81,7 +90,7 @@ export function ItemThread({
     return () => {
       cancelled = true;
     };
-  }, [itemId]);
+  }, [itemId, refreshKey]);
 
   function handlePost() {
     const plain = draft.trim();
@@ -179,7 +188,7 @@ export function ItemThread({
                   </div>
                   <button
                     onClick={() => handleDeleteComment(entry.comment.id)}
-                    className="shrink-0 text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+                    className="shrink-0 text-gray-300 opacity-100 md:opacity-0 md:hover:text-red-500 md:group-hover:opacity-100"
                   >
                     <Trash2 size={12} />
                   </button>

@@ -65,7 +65,7 @@ export function BoardHeader({
             <button
               onClick={onExport}
               disabled={exporting}
-              title={view === 'table' ? 'Export as CSV' : 'Export as image'}
+              title={view === 'table' ? 'Export as CSV' : view === 'gantt' ? 'Export as PDF' : 'Export as image'}
               className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
             >
               <Download size={15} />

@@ -6,12 +6,14 @@ import { GripVertical, Maximize2, Trash2 } from 'lucide-react';
 import type { CellValue, Column, ColumnOptions, Item, MemberProfile } from '@/types/database';
 import { Cell } from './cells/Cell';
 import { getCellValue } from '@/lib/cell-helpers';
-import { rowGridTemplate } from '@/lib/grid';
+import { handleTrackWidth, rowGridTemplate, totalGridWidth } from '@/lib/grid';
 import { TextCell } from './cells/TextCell';
 
 export function ItemRow({
   item,
   columns,
+  compact = false,
+  itemWidth,
   orderingLocked = false,
   members = [],
   attachmentCounts = {},
@@ -24,6 +26,8 @@ export function ItemRow({
 }: {
   item: Item;
   columns: Column[];
+  compact?: boolean;
+  itemWidth?: number;
   orderingLocked?: boolean;
   members?: MemberProfile[];
   attachmentCounts?: Record<string, number>;
@@ -46,33 +50,48 @@ export function ItemRow({
     opacity: isDragging ? 0.4 : 1,
   };
 
+  // Once the Item column has locked down to its narrow mobile width, the
+  // move handle and open-item arrow eat most of that width themselves,
+  // leaving barely any of it for the title — drop both so the title gets
+  // the full narrow column instead of a sliver of it.
+  const narrowed = itemWidth !== undefined;
+
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, gridTemplateColumns: rowGridTemplate(columns) }}
+      style={{
+        ...style,
+        gridTemplateColumns: rowGridTemplate(columns, compact, itemWidth),
+        width: totalGridWidth(columns, compact, itemWidth),
+      }}
       className="group grid border-t border-gray-100 bg-white hover:bg-blue-50/30"
     >
-      {orderingLocked || !canEdit ? (
+      {orderingLocked || !canEdit || narrowed ? (
         <div className="sticky left-0 z-10 bg-white group-hover:bg-blue-50/30" />
       ) : (
         <button
           {...attributes}
           {...listeners}
-          className="sticky left-0 z-10 flex cursor-grab items-center justify-center bg-white text-gray-300 opacity-0 hover:text-gray-500 group-hover:bg-blue-50/30 group-hover:opacity-100 active:cursor-grabbing"
+          className="sticky left-0 z-10 flex cursor-grab items-center justify-center bg-white text-gray-300 opacity-100 group-hover:bg-blue-50/30 active:cursor-grabbing md:opacity-0 md:hover:text-gray-500 md:group-hover:opacity-100"
         >
           <GripVertical size={14} />
         </button>
       )}
 
-      <div className="sticky left-[36px] z-10 flex items-center gap-1 border-r border-gray-100 bg-white px-1 text-sm text-gray-800 group-hover:bg-blue-50/30">
-        <button
-          type="button"
-          onClick={() => onOpenItem?.(item.id)}
-          className="shrink-0 text-gray-300 opacity-0 hover:text-gray-500 group-hover:opacity-100"
-          title="Open item"
-        >
-          <Maximize2 size={12} />
-        </button>
+      <div
+        className="sticky z-10 flex items-center gap-1 border-r border-gray-100 bg-white px-1 text-sm text-gray-800 group-hover:bg-blue-50/30"
+        style={{ left: handleTrackWidth(itemWidth) }}
+      >
+        {!narrowed && (
+          <button
+            type="button"
+            onClick={() => onOpenItem?.(item.id)}
+            className="shrink-0 text-gray-300 opacity-100 md:opacity-0 md:hover:text-gray-500 md:group-hover:opacity-100"
+            title="Open item"
+          >
+            <Maximize2 size={12} />
+          </button>
+        )}
         <div className={`min-w-0 flex-1 ${!canEdit ? 'pointer-events-none' : ''}`}>
           <TextCell value={item.title} onChange={(title) => onTitleChange(item.id, title)} />
         </div>
@@ -103,7 +122,7 @@ export function ItemRow({
         <button
           type="button"
           onClick={() => onDeleteItem?.(item.id)}
-          className="flex items-center justify-center text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+          className="flex items-center justify-center text-gray-300 opacity-100 md:opacity-0 md:hover:text-red-500 md:group-hover:opacity-100"
           title="Delete item"
         >
           <Trash2 size={13} />

@@ -43,7 +43,7 @@ export function ColumnHeaderMenu({
           setName(column.name);
           setOpen((o) => !o);
         }}
-        className="flex h-full items-center px-1 text-gray-300 opacity-0 hover:text-gray-600 group-hover:opacity-100"
+        className="flex h-full items-center px-1 text-gray-300 opacity-100 md:opacity-0 md:hover:text-gray-600 md:group-hover:opacity-100"
         title="Column options"
       >
         <ChevronDown size={13} />

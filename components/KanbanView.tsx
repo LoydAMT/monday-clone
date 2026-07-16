@@ -218,7 +218,7 @@ function KanbanCard({
         <button
           {...attributes}
           {...listeners}
-          className="absolute left-1.5 top-2 cursor-grab text-gray-300 opacity-0 hover:text-gray-500 group-hover:opacity-100 active:cursor-grabbing"
+          className="absolute left-1.5 top-2 cursor-grab text-gray-300 opacity-100 active:cursor-grabbing md:opacity-0 md:hover:text-gray-500 md:group-hover:opacity-100"
           title="Drag to move"
         >
           <GripVertical size={13} />
@@ -228,7 +228,7 @@ function KanbanCard({
         <button
           type="button"
           onClick={() => onOpenItem?.(item.id)}
-          className="text-gray-300 opacity-0 hover:text-gray-500 group-hover:opacity-100"
+          className="text-gray-300 opacity-100 md:opacity-0 md:hover:text-gray-500 md:group-hover:opacity-100"
           title="Open item"
         >
           <Maximize2 size={12} />
@@ -237,7 +237,7 @@ function KanbanCard({
           <button
             type="button"
             onClick={() => onDeleteItem?.(item.id)}
-            className="text-gray-300 opacity-0 hover:text-red-500 group-hover:opacity-100"
+            className="text-gray-300 opacity-100 md:opacity-0 md:hover:text-red-500 md:group-hover:opacity-100"
             title="Delete item"
           >
             <Trash2 size={12} />

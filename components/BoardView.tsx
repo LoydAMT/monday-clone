@@ -13,7 +13,8 @@ import { ItemDetailModal } from './ItemDetailModal';
 import { TrashPanel } from './TrashPanel';
 import { Toast, type ToastState } from './ui/Toast';
 import { applyFilters, applySearch, applySort } from '@/lib/filter-sort';
-import { boardToCsv, downloadTextFile, exportNodeAsPng } from '@/lib/export';
+import { boardToCsv, downloadTextFile, exportNodeAsPdf, exportNodeAsPng } from '@/lib/export';
+import { formatCellValue } from '@/lib/cell-format';
 import { createNotification } from '@/lib/notifications';
 import {
   createNewColumn,
@@ -106,8 +107,14 @@ export function BoardView({
     upsertCellData(itemId, newCells).catch(() => setItems(previous));
 
     const column = columns.find((c) => c.id === columnId);
-    if (column?.type === 'status' && value.type === 'status' && previousValue?.type === 'status' && previousValue.value !== value.value) {
-      logActivity(itemId, 'status_changed', { column_name: column.name, from: previousValue.value, to: value.value });
+    // Every column type gets logged (not just Status) — file cells have no
+    // value of their own to compare (attachments log their own add/remove).
+    if (column && column.type !== 'file') {
+      const from = previousValue ? formatCellValue(previousValue, members) : '';
+      const to = formatCellValue(value, members);
+      if (from !== to) {
+        logActivity(itemId, 'cell_changed', { column_name: column.name, from, to });
+      }
     }
 
     if (column?.type === 'people' && value.type === 'people') {
@@ -268,7 +275,11 @@ export function BoardView({
     if (!viewContainerRef.current) return;
     setExporting(true);
     try {
-      await exportNodeAsPng(viewContainerRef.current, `${safeName}-${view}.png`);
+      if (view === 'gantt') {
+        await exportNodeAsPdf(viewContainerRef.current, `${safeName}-gantt.pdf`);
+      } else {
+        await exportNodeAsPng(viewContainerRef.current, `${safeName}-${view}.png`);
+      }
     } finally {
       setExporting(false);
     }

@@ -11,6 +11,8 @@ import { GroupSummaryRow } from './GroupSummaryRow';
 export function GroupSection({
   group,
   columns,
+  compact = false,
+  itemWidth,
   items,
   orderingLocked = false,
   members = [],
@@ -26,6 +28,8 @@ export function GroupSection({
 }: {
   group: Group;
   columns: Column[];
+  compact?: boolean;
+  itemWidth?: number;
   items: Item[];
   orderingLocked?: boolean;
   members?: MemberProfile[];
@@ -85,10 +89,10 @@ export function GroupSection({
           onChange={(e) => setName(e.target.value)}
           onBlur={() => name.trim() && name !== group.name && onRenameGroup(group.id, name.trim())}
           readOnly={!canEdit}
-          className="rounded px-1 -mx-1 text-sm font-semibold outline-none hover:bg-gray-50 focus:bg-gray-50"
+          className="rounded px-1 -mx-1 text-sm font-semibold outline-none max-sm:text-xs hover:bg-gray-50 focus:bg-gray-50"
           style={{ color: group.color }}
         />
-        <span className="text-xs text-gray-400">({items.length})</span>
+        <span className="text-xs text-gray-400 max-sm:text-[10px]">({items.length})</span>
       </div>
 
       {!collapsed && (
@@ -99,6 +103,8 @@ export function GroupSection({
                 key={item.id}
                 item={item}
                 columns={columns}
+                compact={compact}
+                itemWidth={itemWidth}
                 orderingLocked={orderingLocked}
                 members={members}
                 attachmentCounts={attachmentCounts}
@@ -121,7 +127,7 @@ export function GroupSection({
             </button>
           )}
 
-          <GroupSummaryRow columns={columns} items={items} />
+          <GroupSummaryRow columns={columns} compact={compact} itemWidth={itemWidth} items={items} />
         </div>
       )}
     </div>
