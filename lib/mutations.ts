@@ -91,7 +91,10 @@ export async function updateItemTitle(itemId: string, title: string, previousTit
   }
 }
 
-export async function updateBoard(boardId: string, patch: Partial<Pick<Board, 'name' | 'description'>>) {
+export async function updateBoard(
+  boardId: string,
+  patch: Partial<Pick<Board, 'name' | 'description' | 'email_notifications_enabled'>>
+) {
   const { error } = await supabase.from('boards').update(patch).eq('id', boardId);
   if (error) throw error;
 }

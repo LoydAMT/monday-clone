@@ -35,6 +35,13 @@ export async function POST(request: NextRequest) {
   if (!recipient) return NextResponse.json({ skipped: 'recipient not found' }, { status: 200 });
 
   const boardId = payload.board_id as string | undefined;
+  if (boardId) {
+    const { data: board } = await supabase.from('boards').select('email_notifications_enabled').eq('id', boardId).maybeSingle();
+    if (board && !board.email_notifications_enabled) {
+      return NextResponse.json({ skipped: 'email notifications disabled for this board' });
+    }
+  }
+
   const itemId = payload.item_id as string | undefined;
   let itemTitle = payload.item_title as string | undefined;
   if (!itemTitle && itemId) {

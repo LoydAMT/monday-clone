@@ -48,6 +48,7 @@ export interface Board {
   name: string;
   description: string;
   position: number;
+  email_notifications_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -207,6 +207,13 @@ export function BoardView({
     updateBoard(board.id, { description }).catch(() => setBoard(previous));
   }
 
+  function handleToggleEmailNotifications(enabled: boolean) {
+    if (!canEdit) return;
+    const previous = board;
+    setBoard((b) => ({ ...b, email_notifications_enabled: enabled }));
+    updateBoard(board.id, { email_notifications_enabled: enabled }).catch(() => setBoard(previous));
+  }
+
   function handleCellChange(itemId: string, columnId: string, value: CellValue) {
     if (!canEdit) return;
     const previous = items;
@@ -483,6 +490,7 @@ export function BoardView({
         onNewItem={() => groups[0] && handleAddItem(groups[0].id)}
         onOpenTrash={() => setTrashOpen(true)}
         onOpenAutomations={() => setAutomationsOpen(true)}
+        onToggleEmailNotifications={handleToggleEmailNotifications}
         onOpenShare={() => setShareOpen(true)}
         onExport={handleExport}
         exporting={exporting}

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Eye, GanttChartSquare, Link2, Plus, Table2, LayoutGrid as KanbanIcon, Trash2, Zap } from 'lucide-react';
+import { Download, Eye, GanttChartSquare, Link2, Mail, Plus, Table2, LayoutGrid as KanbanIcon, Trash2, Zap } from 'lucide-react';
 import type { Board } from '@/types/database';
 import type { PresenceUser } from '@/lib/use-board-presence';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
@@ -17,6 +17,7 @@ export function BoardHeader({
   onNewItem,
   onOpenTrash,
   onOpenAutomations,
+  onToggleEmailNotifications,
   onOpenShare,
   onExport,
   exporting = false,
@@ -31,6 +32,7 @@ export function BoardHeader({
   onNewItem: () => void;
   onOpenTrash: () => void;
   onOpenAutomations: () => void;
+  onToggleEmailNotifications: (enabled: boolean) => void;
   onOpenShare: () => void;
   onExport?: () => void;
   exporting?: boolean;
@@ -104,6 +106,30 @@ export function BoardHeader({
             className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           >
             <Zap size={15} />
+          </button>
+          <button
+            type="button"
+            onClick={() => onToggleEmailNotifications(!board.email_notifications_enabled)}
+            disabled={!canEdit}
+            title={
+              board.email_notifications_enabled
+                ? 'Email notifications on for this board — click to turn off'
+                : 'Email notifications off for this board — click to turn on'
+            }
+            className="flex h-8 items-center gap-1.5 rounded-md px-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:pointer-events-none disabled:opacity-50"
+          >
+            <Mail size={15} />
+            <span
+              className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors ${
+                board.email_notifications_enabled ? 'bg-[#0073ea]' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  board.email_notifications_enabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                }`}
+              />
+            </span>
           </button>
           <button
             onClick={onOpenShare}
