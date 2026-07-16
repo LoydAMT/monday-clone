@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Eye, GanttChartSquare, Plus, Table2, LayoutGrid as KanbanIcon, Trash2 } from 'lucide-react';
+import { Download, Eye, GanttChartSquare, Link2, Plus, Table2, LayoutGrid as KanbanIcon, Trash2, Zap } from 'lucide-react';
 import type { Board } from '@/types/database';
+import type { PresenceUser } from '@/lib/use-board-presence';
+import { avatarColor, displayName, initials } from '@/lib/avatar-color';
 
 export type BoardViewMode = 'table' | 'kanban' | 'gantt';
 
@@ -14,9 +16,12 @@ export function BoardHeader({
   onUpdateDescription,
   onNewItem,
   onOpenTrash,
+  onOpenAutomations,
+  onOpenShare,
   onExport,
   exporting = false,
   canEdit = true,
+  presenceUsers = [],
 }: {
   board: Board;
   view: BoardViewMode;
@@ -25,9 +30,12 @@ export function BoardHeader({
   onUpdateDescription: (description: string) => void;
   onNewItem: () => void;
   onOpenTrash: () => void;
+  onOpenAutomations: () => void;
+  onOpenShare: () => void;
   onExport?: () => void;
   exporting?: boolean;
   canEdit?: boolean;
+  presenceUsers?: PresenceUser[];
 }) {
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description);
@@ -61,6 +69,25 @@ export function BoardHeader({
         </div>
 
         <div className="flex flex-wrap shrink-0 items-center gap-2">
+          {presenceUsers.length > 0 && (
+            <div className="flex items-center -space-x-1.5 pr-1">
+              {presenceUsers.slice(0, 5).map((u) => (
+                <span
+                  key={u.user_id}
+                  title={`${displayName(u)} is viewing this board`}
+                  className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[9px] font-semibold text-white"
+                  style={{ backgroundColor: avatarColor(u.user_id) }}
+                >
+                  {initials(u)}
+                </span>
+              ))}
+              {presenceUsers.length > 5 && (
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-gray-300 text-[9px] font-semibold text-gray-700">
+                  +{presenceUsers.length - 5}
+                </span>
+              )}
+            </div>
+          )}
           {onExport && (
             <button
               onClick={onExport}
@@ -71,6 +98,20 @@ export function BoardHeader({
               <Download size={15} />
             </button>
           )}
+          <button
+            onClick={onOpenAutomations}
+            title="Automations"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <Zap size={15} />
+          </button>
+          <button
+            onClick={onOpenShare}
+            title="Share"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <Link2 size={15} />
+          </button>
           <button
             onClick={onOpenTrash}
             title="Trash"

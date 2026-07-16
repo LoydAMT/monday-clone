@@ -1,5 +1,19 @@
 import { createClient } from '@/utils/supabase/client';
-import type { Board, Column, ColumnOptions, ColumnType, Group, Item, ItemCells, MemberProfile, WorkspaceRole } from '@/types/database';
+import type {
+  Automation,
+  AutomationActionType,
+  AutomationTriggerType,
+  Board,
+  BoardShareLink,
+  Column,
+  ColumnOptions,
+  ColumnType,
+  Group,
+  Item,
+  ItemCells,
+  MemberProfile,
+  WorkspaceRole,
+} from '@/types/database';
 import type { BoardTemplate } from '@/lib/templates';
 import { createNotification } from '@/lib/notifications';
 
@@ -313,4 +327,65 @@ export async function updateGroupPositions(updates: GroupPositionUpdate[]) {
   );
   const failed = results.find((r) => r.error);
   if (failed?.error) throw failed.error;
+}
+
+export interface NewAutomation {
+  board_id: string;
+  trigger_type: AutomationTriggerType;
+  trigger_column_id: string;
+  trigger_value?: string | null;
+  action_type: AutomationActionType;
+  action_column_id?: string | null;
+  action_value?: string | null;
+  action_user_id?: string | null;
+}
+
+export async function createAutomation(input: NewAutomation): Promise<Automation> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error('Not signed in');
+  const { data, error } = await supabase
+    .from('automations')
+    .insert({ ...input, created_by: auth.user.id })
+    .select()
+    .single();
+  if (error || !data) throw error;
+  return data;
+}
+
+export async function deleteAutomation(id: string) {
+  const { error } = await supabase.from('automations').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// Which items a "date passed" automation has already fired for — checked
+// before applying it again so it only ever runs once per item (see
+// migration 0011's comment on automation_runs for why).
+export async function getAutomationRunItemIds(automationId: string): Promise<Set<string>> {
+  const { data, error } = await supabase.from('automation_runs').select('item_id').eq('automation_id', automationId);
+  if (error) throw error;
+  return new Set((data ?? []).map((r) => r.item_id as string));
+}
+
+export async function recordAutomationRun(automationId: string, itemId: string) {
+  await supabase.from('automation_runs').insert({ automation_id: automationId, item_id: itemId });
+}
+
+export async function createShareLink(boardId: string): Promise<BoardShareLink> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) throw new Error('Not signed in');
+  const { data, error } = await supabase
+    .from('board_share_links')
+    .insert({ board_id: boardId, created_by: auth.user.id })
+    .select()
+    .single();
+  if (error || !data) throw error;
+  return data;
+}
+
+export async function revokeShareLink(id: string) {
+  const { error } = await supabase
+    .from('board_share_links')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw error;
 }

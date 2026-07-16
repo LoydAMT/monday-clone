@@ -56,6 +56,10 @@ export function ItemRow({
   // the full narrow column instead of a sliver of it.
   const narrowed = itemWidth !== undefined;
 
+  const statusColumn = columns.find((c) => c.type === 'status');
+  const statusValue = statusColumn ? getCellValue(statusColumn, item) : null;
+  const isItemDone = statusValue?.type === 'status' && statusValue.value === 'Done';
+
   return (
     <div
       ref={setNodeRef}
@@ -114,6 +118,7 @@ export function ItemRow({
               members={members}
               onOpenItem={() => onOpenItem?.(item.id)}
               attachmentCount={attachmentCounts[item.id] ?? 0}
+              isDone={isItemDone}
             />
           </div>
         );

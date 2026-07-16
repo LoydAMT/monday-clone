@@ -47,6 +47,8 @@ export function ItemDetailModal({
 }) {
   const [title, setTitle] = useState(item.title);
   const statusColumn = columns.find((c) => c.type === 'status');
+  const statusValue = statusColumn ? getCellValue(statusColumn, item) : null;
+  const isItemDone = statusValue?.type === 'status' && statusValue.value === 'Done';
 
   const assignedUserIds = columns
     .filter((c) => c.type === 'people')
@@ -81,6 +83,7 @@ export function ItemDetailModal({
                     onOptionsChange={(options) => onOptionsChange(column.id, options)}
                     members={members}
                     attachmentCount={attachmentCount}
+                    isDone={isItemDone}
                   />
                 </div>
               </div>

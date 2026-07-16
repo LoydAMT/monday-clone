@@ -28,8 +28,13 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login');
+  // Guest share links (app/share/[token]/page.tsx) are meant to be viewed
+  // without an account — the token itself is the authorization check, done
+  // server-side in that route with the service-role client, not via a
+  // Supabase session.
+  const isPublicRoute = isAuthRoute || request.nextUrl.pathname.startsWith('/share/');
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

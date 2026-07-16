@@ -167,6 +167,32 @@ export interface Notification {
   created_at: string;
 }
 
+export type AutomationTriggerType = 'status_changed' | 'date_passed';
+export type AutomationActionType = 'notify' | 'change_status';
+
+export interface Automation {
+  id: string;
+  board_id: string;
+  trigger_type: AutomationTriggerType;
+  trigger_column_id: string;
+  trigger_value: string | null;
+  action_type: AutomationActionType;
+  action_column_id: string | null;
+  action_value: string | null;
+  action_user_id: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+export interface BoardShareLink {
+  id: string;
+  board_id: string;
+  token: string;
+  created_by: string;
+  created_at: string;
+  revoked_at: string | null;
+}
+
 export interface BoardData {
   board: Board;
   columns: Column[];

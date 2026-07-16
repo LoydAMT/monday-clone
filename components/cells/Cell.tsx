@@ -22,6 +22,7 @@ export function Cell({
   members = [],
   onOpenItem,
   attachmentCount = 0,
+  isDone = false,
 }: {
   column: Column;
   cellValue: CellValue;
@@ -30,6 +31,10 @@ export function Cell({
   members?: MemberProfile[];
   onOpenItem?: () => void;
   attachmentCount?: number;
+  // Whether this item's Status column currently reads "Done" — once true,
+  // the Timeline cell drops the red days-left countdown (no longer useful
+  // once the work is finished) and shows the finish date instead.
+  isDone?: boolean;
 }) {
   switch (cellValue.type) {
     case 'text':
@@ -70,7 +75,13 @@ export function Cell({
         <RatingCell column={column} value={cellValue.value} onChange={(value) => onChange({ type: 'rating', value })} />
       );
     case 'timeline':
-      return <TimelineCell value={cellValue.value} onChange={(value) => onChange({ type: 'timeline', value })} />;
+      return (
+        <TimelineCell
+          value={cellValue.value}
+          onChange={(value) => onChange({ type: 'timeline', value })}
+          isDone={isDone}
+        />
+      );
     case 'file':
       return <FileCell count={attachmentCount} onOpenItem={onOpenItem} />;
     case 'progress':

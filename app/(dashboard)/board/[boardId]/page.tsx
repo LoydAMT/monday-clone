@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { getBoardContents, getBoardRow, getWorkspaceMembers } from '@/lib/queries';
+import { getAutomations, getBoardContents, getBoardRow, getShareLinks, getWorkspaceMembers } from '@/lib/queries';
 import { BoardView } from '@/components/BoardView';
 
 export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
@@ -19,12 +19,23 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
   const board = await getBoardRow(supabase, boardId);
   if (!board) notFound();
 
-  // Contents and members only depend on the board row above, not on each
-  // other, so they can load side by side instead of one after the other.
-  const [contents, members] = await Promise.all([
+  // Contents, members, and automations only depend on the board row above,
+  // not on each other, so they can load side by side instead of one after
+  // the other.
+  const [contents, members, automations, shareLinks] = await Promise.all([
     getBoardContents(supabase, boardId),
     getWorkspaceMembers(board.workspace_id),
+    getAutomations(supabase, boardId),
+    getShareLinks(supabase, boardId),
   ]);
 
-  return <BoardView initialData={{ board, ...contents }} members={members} currentUserId={session.user.id} />;
+  return (
+    <BoardView
+      initialData={{ board, ...contents }}
+      members={members}
+      currentUserId={session.user.id}
+      initialAutomations={automations}
+      initialShareLinks={shareLinks}
+    />
+  );
 }

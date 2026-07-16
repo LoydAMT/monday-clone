@@ -19,6 +19,8 @@ function describeNotification(n: Notification): string {
       return `New comment: "${stripMentionTokens(payload.body ?? '').slice(0, 60)}"`;
     case 'mentioned_in_comment':
       return `You were mentioned: "${stripMentionTokens(payload.body ?? '').slice(0, 60)}"`;
+    case 'automation_notify':
+      return `Automation: "${payload.item_title}" ${payload.column_name} is now "${payload.status_value}"`;
     default:
       return n.type;
   }

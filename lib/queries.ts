@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
-import type { Board, BoardData, MemberProfile, Workspace } from '@/types/database';
+import type { Automation, Board, BoardData, BoardShareLink, MemberProfile, Workspace } from '@/types/database';
 
 export interface WorkspaceWithBoards extends Workspace {
   boards: Board[];
@@ -121,6 +121,32 @@ export async function getBoardContents(
     items: items ?? [],
     attachmentCounts,
   };
+}
+
+export async function getAutomations(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  boardId: string
+): Promise<Automation[]> {
+  const { data, error } = await supabase
+    .from('automations')
+    .select('*')
+    .eq('board_id', boardId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function getShareLinks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  boardId: string
+): Promise<BoardShareLink[]> {
+  const { data, error } = await supabase
+    .from('board_share_links')
+    .select('*')
+    .eq('board_id', boardId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function getBoardData(boardId: string): Promise<BoardData | null> {
