@@ -11,12 +11,13 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
   // round trip to revalidate the JWT) and redirects unauthenticated requests
   // before this page ever renders — getSession() just reads the already-
   // validated cookie, so this doesn't need to hit the network again too.
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  // It also doesn't depend on the board row (RLS enforces access DB-side
+  // regardless), so the two run side by side instead of one after the other.
+  const [{ data: { session } }, board] = await Promise.all([
+    supabase.auth.getSession(),
+    getBoardRow(supabase, boardId),
+  ]);
   if (!session) redirect('/login');
-
-  const board = await getBoardRow(supabase, boardId);
   if (!board) notFound();
 
   // Contents, members, and automations only depend on the board row above,
