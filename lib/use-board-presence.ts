@@ -71,21 +71,50 @@ export function useBoardPresence(
     const container = containerRef.current;
     if (!container) return;
 
-    let frame = 0;
+    // Supabase Realtime enforces a per-connection message-rate limit on
+    // presence track() calls — broadcasting on every animation frame
+    // (~60/s) while the mouse moves comfortably exceeds it, so the server
+    // silently throttles/drops most of them. That's exactly what
+    // intermittent, mostly-frozen remote cursors look like: it's not that
+    // the feature doesn't work, it's that most updates never arrive.
+    // ~10/s (matching what Figma/Google Docs-style multiplayer cursors
+    // typically use) is still visually smooth and stays well under it.
+    const THROTTLE_MS = 100;
+    let lastSentAt = 0;
+    let pendingCursor: { x: number; y: number } | null = null;
+    let trailingTimeout: ReturnType<typeof setTimeout> | null = null;
+
     function broadcastCursor(cursor: { x: number; y: number } | null) {
       payloadRef.current = { ...payloadRef.current, cursor };
       channelRef.current?.track(payloadRef.current);
+      lastSentAt = Date.now();
     }
+
+    // Leading + trailing throttle: sends immediately if enough time has
+    // passed, otherwise schedules one trailing send for the *latest*
+    // position so a burst of movement always ends with an up-to-date
+    // broadcast instead of silently dropping whatever arrived mid-throttle.
+    function scheduleCursor(cursor: { x: number; y: number } | null) {
+      pendingCursor = cursor;
+      const elapsed = Date.now() - lastSentAt;
+      if (elapsed >= THROTTLE_MS) {
+        broadcastCursor(pendingCursor);
+        return;
+      }
+      if (!trailingTimeout) {
+        trailingTimeout = setTimeout(() => {
+          trailingTimeout = null;
+          broadcastCursor(pendingCursor);
+        }, THROTTLE_MS - elapsed);
+      }
+    }
+
     function handleMove(e: MouseEvent) {
-      if (frame) return;
       const rect = container!.getBoundingClientRect();
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        broadcastCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-      });
+      scheduleCursor({ x: e.clientX - rect.left, y: e.clientY - rect.top });
     }
     function handleLeave() {
-      broadcastCursor(null);
+      scheduleCursor(null);
     }
 
     container.addEventListener('mousemove', handleMove);
@@ -93,7 +122,7 @@ export function useBoardPresence(
     return () => {
       container.removeEventListener('mousemove', handleMove);
       container.removeEventListener('mouseleave', handleLeave);
-      if (frame) cancelAnimationFrame(frame);
+      if (trailingTimeout) clearTimeout(trailingTimeout);
     };
   }, [containerRef]);
 
