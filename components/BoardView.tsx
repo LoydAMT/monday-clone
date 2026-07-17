@@ -78,12 +78,16 @@ export function BoardView({
   // Clicking a mention/assignment notification for an item on the board
   // you're already viewing only changes the `item` query param — Next.js
   // reuses this mounted component rather than remounting it, so the
-  // useState initializer above never re-runs on its own. Re-sync whenever
-  // the param changes so the deep link still opens the modal in that case.
-  useEffect(() => {
-    const id = searchParams.get('item');
-    if (id) setOpenItemId(id);
-  }, [searchParams]);
+  // useState initializer above never re-runs on its own. Tracking the last
+  // seen param and re-syncing here (React's own recommended alternative to
+  // an effect for "adjust state when a prop/value changes") picks up the
+  // deep link in that case without an extra post-commit render pass.
+  const [lastSyncedItemParam, setLastSyncedItemParam] = useState(() => searchParams.get('item'));
+  const currentItemParam = searchParams.get('item');
+  if (currentItemParam !== lastSyncedItemParam) {
+    setLastSyncedItemParam(currentItemParam);
+    if (currentItemParam) setOpenItemId(currentItemParam);
+  }
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<ColumnFilter[]>([]);
   const [sort, setSort] = useState<SortState | null>(null);

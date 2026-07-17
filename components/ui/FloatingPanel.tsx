@@ -29,10 +29,10 @@ export function FloatingPanel({
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
   useLayoutEffect(() => {
-    if (!open) {
-      setPosition(null);
-      return;
-    }
+    // Render already gates on `open` below (`!open || !position`), so a
+    // stale position left over from the last time this was open is
+    // harmless — nothing to reset here when closed.
+    if (!open) return;
     const anchor = anchorRef.current;
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();

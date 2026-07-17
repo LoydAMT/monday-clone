@@ -27,16 +27,19 @@ const SHRUNK_LINE_HEIGHT_RATIO = 1.3;
 // lines and truncates the rest instead.
 function useShrinkToFit(text: string, enabled: boolean) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [style, setStyle] = useState<React.CSSProperties>({});
+  const [measuredStyle, setMeasuredStyle] = useState<React.CSSProperties>({});
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
 
+    // Direct DOM writes, not React state — clearing a previous measurement's
+    // inline styles when this becomes disabled (e.g. compact toggled on)
+    // doesn't need a re-render, since the returned `style` below already
+    // computes to {} in that case independent of state.
     if (!enabled) {
       el.style.fontSize = '';
       el.style.lineHeight = '';
-      setStyle({});
       return;
     }
 
@@ -57,9 +60,9 @@ function useShrinkToFit(text: string, enabled: boolean) {
 
       if (size === baseSize) {
         el.style.lineHeight = '';
-        setStyle({});
+        setMeasuredStyle({});
       } else {
-        setStyle({ fontSize: size, lineHeight: SHRUNK_LINE_HEIGHT_RATIO });
+        setMeasuredStyle({ fontSize: size, lineHeight: SHRUNK_LINE_HEIGHT_RATIO });
       }
     }
 
@@ -69,7 +72,7 @@ function useShrinkToFit(text: string, enabled: boolean) {
     return () => observer.disconnect();
   }, [text, enabled]);
 
-  return { ref, style };
+  return { ref, style: enabled ? measuredStyle : {} };
 }
 
 export function TextCell({

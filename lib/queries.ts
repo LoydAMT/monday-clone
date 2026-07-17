@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/server';
-import type { Automation, Board, BoardData, BoardShareLink, MemberProfile, Workspace } from '@/types/database';
+import type { Automation, Board, BoardData, BoardShareLink, Item, MemberProfile, Workspace } from '@/types/database';
 
 export interface WorkspaceWithBoards extends Workspace {
   boards: Board[];
@@ -9,6 +9,31 @@ export interface WorkspaceWithBoards extends Workspace {
 // workspace_members and profiles both reference auth.users independently (no
 // FK between them), so this joins them client-side instead of via a nested
 // PostgREST select — same two-query-then-stitch pattern used for boards below.
+async function stitchMemberProfiles(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  memberRows: { workspace_id: string; user_id: string; role: MemberProfile['role'] }[]
+): Promise<MemberProfile[]> {
+  if (memberRows.length === 0) return [];
+
+  const { data: profiles, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .in('id', memberRows.map((m) => m.user_id));
+  if (profileError) throw profileError;
+
+  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  return memberRows.map((m) => {
+    const profile = profileById.get(m.user_id);
+    return {
+      user_id: m.user_id,
+      email: profile?.email ?? m.user_id,
+      full_name: profile?.full_name ?? null,
+      role: m.role,
+    };
+  });
+}
+
 async function getMembersForWorkspaces(
   supabase: Awaited<ReturnType<typeof createClient>>,
   workspaceIds: string[]
@@ -22,25 +47,13 @@ async function getMembersForWorkspaces(
   if (memberError) throw memberError;
   if (!memberRows || memberRows.length === 0) return {};
 
-  const { data: profiles, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .in('id', memberRows.map((m) => m.user_id));
-  if (profileError) throw profileError;
-
-  const profileById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const members = await stitchMemberProfiles(supabase, memberRows);
 
   const byWorkspace: Record<string, MemberProfile[]> = {};
-  for (const m of memberRows) {
-    const profile = profileById.get(m.user_id);
-    const entry: MemberProfile = {
-      user_id: m.user_id,
-      email: profile?.email ?? m.user_id,
-      full_name: profile?.full_name ?? null,
-      role: m.role,
-    };
-    (byWorkspace[m.workspace_id] ??= []).push(entry);
-  }
+  members.forEach((member, i) => {
+    const workspaceId = memberRows[i].workspace_id;
+    (byWorkspace[workspaceId] ??= []).push(member);
+  });
   return byWorkspace;
 }
 
@@ -67,10 +80,23 @@ export async function getWorkspacesWithBoards(): Promise<WorkspaceWithBoards[]> 
   }));
 }
 
-export async function getWorkspaceMembers(workspaceId: string): Promise<MemberProfile[]> {
-  const supabase = await createClient();
-  const byWorkspace = await getMembersForWorkspaces(supabase, [workspaceId]);
-  return byWorkspace[workspaceId] ?? [];
+// Filters workspace_members by boardId directly (workspaces!inner(boards!inner(id)))
+// instead of by workspace_id, so callers don't need to fetch the board row
+// first just to learn its workspace_id — lets this run in the very first
+// batch of parallel queries on the board page instead of gating behind the
+// board row.
+export async function getWorkspaceMembersForBoard(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  boardId: string
+): Promise<MemberProfile[]> {
+  const { data: memberRows, error } = await supabase
+    .from('workspace_members')
+    .select('workspace_id, user_id, role, workspaces!inner(boards!inner(id))')
+    .eq('workspaces.boards.id', boardId);
+  if (error) throw error;
+  if (!memberRows || memberRows.length === 0) return [];
+
+  return stitchMemberProfiles(supabase, memberRows);
 }
 
 // Split from getBoardData so callers that also need something else keyed off
@@ -89,23 +115,33 @@ export async function getBoardContents(
   supabase: Awaited<ReturnType<typeof createClient>>,
   boardId: string
 ): Promise<Omit<BoardData, 'board'>> {
-  const [{ data: columns }, { data: groups }] = await Promise.all([
+  // items used to wait for the groups query to resolve first (fetch
+  // groupIds, then fetch items in a second round trip) — filtering through
+  // the groups!inner join instead lets columns/groups/items all go out in
+  // the same round trip. attachments still needs itemIds first (an
+  // unavoidable dependency), so it's the only step left waiting on a prior
+  // query's result.
+  const [{ data: columns }, { data: groups }, { data: rawItems }] = await Promise.all([
     supabase.from('columns').select('*').eq('board_id', boardId).order('position', { ascending: true }),
     supabase.from('groups').select('*').eq('board_id', boardId).order('position', { ascending: true }),
+    supabase
+      .from('items')
+      .select('*, groups!inner(board_id)')
+      .eq('groups.board_id', boardId)
+      .is('parent_item_id', null)
+      .is('deleted_at', null)
+      .order('position', { ascending: true }),
   ]);
 
-  const groupIds = (groups ?? []).map((g) => g.id);
-  const { data: items } = groupIds.length
-    ? await supabase
-        .from('items')
-        .select('*')
-        .in('group_id', groupIds)
-        .is('parent_item_id', null)
-        .is('deleted_at', null)
-        .order('position', { ascending: true })
-    : { data: [] };
+  // The embedded `groups` field above only exists to filter by board_id
+  // server-side — strip it so the shape matches Item[] exactly.
+  const items: Item[] = (rawItems ?? []).map((row) => {
+    const { groups, ...item } = row;
+    void groups;
+    return item as Item;
+  });
 
-  const itemIds = (items ?? []).map((i) => i.id);
+  const itemIds = items.map((i) => i.id);
   const { data: attachmentRows } = itemIds.length
     ? await supabase.from('attachments').select('item_id').in('item_id', itemIds)
     : { data: [] };
@@ -118,7 +154,7 @@ export async function getBoardContents(
   return {
     columns: columns ?? [],
     groups: groups ?? [],
-    items: items ?? [],
+    items,
     attachmentCounts,
   };
 }

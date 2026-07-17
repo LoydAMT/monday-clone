@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, ChevronRight, GripVertical, Plus, Upload } from 'lucide-react';
@@ -56,7 +56,15 @@ export function GroupSection({
   // group.name only ever changes here via this component's own onBlur (in
   // which case `name` already matches it) — except an import can now rename
   // the group from outside, so this syncs that external change in too.
-  useEffect(() => setName(group.name), [group.name]);
+  // Comparing against a tracked previous value and adjusting state right
+  // here during render (React's own recommended alternative to an effect
+  // for this) avoids clobbering in-progress local typing, same as the old
+  // effect version did, but without the extra post-commit render pass.
+  const [prevGroupName, setPrevGroupName] = useState(group.name);
+  if (group.name !== prevGroupName) {
+    setPrevGroupName(group.name);
+    setName(group.name);
+  }
   // The whole group section is one combined draggable+droppable region: the
   // handle below reorders it among sibling groups, and the same node stays
   // the drop target items resolve to when dragged into this group (matching

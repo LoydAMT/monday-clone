@@ -1,34 +1,35 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { getAutomations, getBoardContents, getBoardRow, getShareLinks, getWorkspaceMembers } from '@/lib/queries';
+import {
+  getAutomations,
+  getBoardContents,
+  getBoardRow,
+  getShareLinks,
+  getWorkspaceMembersForBoard,
+} from '@/lib/queries';
 import { BoardView } from '@/components/BoardView';
 
 export default async function BoardPage({ params }: { params: Promise<{ boardId: string }> }) {
   const { boardId } = await params;
 
   const supabase = await createClient();
-  // Middleware already ran auth.getUser() for this request (a real network
-  // round trip to revalidate the JWT) and redirects unauthenticated requests
-  // before this page ever renders — getSession() just reads the already-
-  // validated cookie, so this doesn't need to hit the network again too.
-  // It also doesn't depend on the board row (RLS enforces access DB-side
-  // regardless), so the two run side by side instead of one after the other.
-  const [{ data: { session } }, board] = await Promise.all([
+  // None of these six actually depend on each other's results — board,
+  // contents, members, automations, and share links are all keyed off
+  // boardId alone (members via a workspaces/boards join instead of needing
+  // board.workspace_id), and the session check only needs the request's own
+  // cookie (middleware already ran the real auth.getUser() round trip that
+  // revalidates it). So all six go out in one batch instead of the board
+  // row gating everything else behind an extra round trip.
+  const [{ data: { session } }, board, contents, members, automations, shareLinks] = await Promise.all([
     supabase.auth.getSession(),
     getBoardRow(supabase, boardId),
-  ]);
-  if (!session) redirect('/login');
-  if (!board) notFound();
-
-  // Contents, members, and automations only depend on the board row above,
-  // not on each other, so they can load side by side instead of one after
-  // the other.
-  const [contents, members, automations, shareLinks] = await Promise.all([
     getBoardContents(supabase, boardId),
-    getWorkspaceMembers(board.workspace_id),
+    getWorkspaceMembersForBoard(supabase, boardId),
     getAutomations(supabase, boardId),
     getShareLinks(supabase, boardId),
   ]);
+  if (!session) redirect('/login');
+  if (!board) notFound();
 
   return (
     <BoardView
