@@ -51,7 +51,22 @@ export function useBoardPresence(
         if (status === 'SUBSCRIBED') channel.track(payloadRef.current);
       });
 
+    // Safety net: if the underlying socket drops and reconnects (a network
+    // blip, laptop sleep/wake, wifi switch — all routine), the client
+    // doesn't always reliably re-fire the SUBSCRIBED status above, which
+    // would silently stop announcing this tab's presence to everyone else
+    // until a manual refresh — "I don't always see if I'm on a board with
+    // someone" is exactly what that looks like from the other side.
+    // Re-announcing periodically bounds how long that can go unnoticed and
+    // self-heals it without needing to precisely detect every reconnect;
+    // track() on an already-current channel is a cheap no-op broadcast, not
+    // a resubscribe.
+    const heartbeat = setInterval(() => {
+      channelRef.current?.track(payloadRef.current);
+    }, 20000);
+
     return () => {
+      clearInterval(heartbeat);
       channelRef.current = null;
       setOthers([]);
       supabase.removeChannel(channel);
