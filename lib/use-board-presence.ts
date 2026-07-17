@@ -12,43 +12,70 @@ export interface PresenceUser {
   cursor: { x: number; y: number } | null;
 }
 
-// Live "who's viewing this board" + cursor positions. Presence is a pure
-// in-memory broadcast channel on top of Supabase Realtime — it never reads
-// or writes a Postgres table, so it can't affect the database or need a
-// migration. Cursor coordinates are relative to `containerRef`'s current
-// on-screen box (via getBoundingClientRect on every move), not to the
-// board's scrolled content — simplest robust option given each view
-// (table/kanban/gantt) manages its own internal scrolling; it shows where
-// someone's pointer is on your screen right now rather than tracking the
-// exact cell they're over if your scroll position differs from theirs.
+type PresenceMeta = Omit<PresenceUser, 'cursor'>;
+type CursorPayload = { user_id: string; cursor: { x: number; y: number } | null };
+
+// Live "who's viewing this board" + cursor positions, over two different
+// Supabase Realtime primitives on the same channel — deliberately, not for
+// simplicity. Presence's track() is for join/leave-style state: verified
+// (via a standalone script against this project) that a fresh track() call
+// updating an *already-joined* member's metadata does not reliably re-fire
+// `sync` for other subscribers — so cursor position, which is nothing but
+// rapid metadata updates on an already-joined member, would silently never
+// arrive if it rode along on presence the way "who's viewing" does. Presence
+// itself never reads/writes a Postgres table, so none of this can affect the
+// database or need a migration.
+//
+// Broadcast, verified separately, propagates every message reliably and in
+// order — it's what cursor position actually uses. Cursor coordinates are
+// relative to `containerRef`'s current on-screen box (via getBoundingClientRect
+// on every move), not to the board's scrolled content — simplest robust
+// option given each view (table/kanban/gantt) manages its own internal
+// scrolling; it shows where someone's pointer is on your screen right now
+// rather than tracking the exact cell they're over if your scroll position
+// differs from theirs.
 export function useBoardPresence(
   boardId: string,
   self: { user_id: string; email: string; full_name: string | null },
   view: string,
   containerRef: RefObject<HTMLElement | null>
 ): PresenceUser[] {
-  const [others, setOthers] = useState<PresenceUser[]>([]);
+  const [others, setOthers] = useState<PresenceMeta[]>([]);
+  const [cursors, setCursors] = useState<Record<string, { x: number; y: number } | null>>({});
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const payloadRef = useRef<PresenceUser>({ ...self, view, cursor: null });
+  const metaRef = useRef<PresenceMeta>({ ...self, view });
 
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase.channel(`presence:board:${boardId}`, {
-      config: { presence: { key: self.user_id } },
+      config: { presence: { key: self.user_id }, broadcast: { self: false } },
     });
     channelRef.current = channel;
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<PresenceUser>();
+        const state = channel.presenceState<PresenceMeta>();
         const list = Object.entries(state)
           .filter(([key]) => key !== self.user_id)
           .map(([, entries]) => entries[0])
           .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
         setOthers(list);
+        // Drop cursors for anyone no longer present, so a departed user's
+        // last position can't linger as a ghost cursor.
+        const presentIds = new Set(list.map((u) => u.user_id));
+        setCursors((prev) => {
+          const next: typeof prev = {};
+          for (const [id, cursor] of Object.entries(prev)) {
+            if (presentIds.has(id)) next[id] = cursor;
+          }
+          return next;
+        });
+      })
+      .on('broadcast', { event: 'cursor' }, ({ payload }: { payload: CursorPayload }) => {
+        setCursors((prev) => ({ ...prev, [payload.user_id]: payload.cursor }));
       })
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') channel.track(payloadRef.current);
+        if (status === 'SUBSCRIBED') channel.track(metaRef.current);
       });
 
     // Safety net: if the underlying socket drops and reconnects (a network
@@ -62,23 +89,24 @@ export function useBoardPresence(
     // track() on an already-current channel is a cheap no-op broadcast, not
     // a resubscribe.
     const heartbeat = setInterval(() => {
-      channelRef.current?.track(payloadRef.current);
+      channelRef.current?.track(metaRef.current);
     }, 20000);
 
     return () => {
       clearInterval(heartbeat);
       channelRef.current = null;
       setOthers([]);
+      setCursors({});
       supabase.removeChannel(channel);
     };
-    // Re-subscribe only when the board or the viewer identity changes —
-    // `view`/cursor updates broadcast over the same connection via track()
-    // in the effects below, without tearing the channel down.
+    // Re-subscribe only when the board or the viewer identity changes — view
+    // updates track() over the same connection, and cursor moves broadcast
+    // over it, in the effects below, without tearing the channel down.
   }, [boardId, self.user_id]);
 
   useEffect(() => {
-    payloadRef.current = { ...payloadRef.current, ...self, view };
-    channelRef.current?.track(payloadRef.current);
+    metaRef.current = { ...metaRef.current, ...self, view };
+    channelRef.current?.track(metaRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [self.user_id, self.email, self.full_name, view]);
 
@@ -86,22 +114,24 @@ export function useBoardPresence(
     const container = containerRef.current;
     if (!container) return;
 
-    // Supabase Realtime enforces a per-connection message-rate limit on
-    // presence track() calls — broadcasting on every animation frame
-    // (~60/s) while the mouse moves comfortably exceeds it, so the server
-    // silently throttles/drops most of them. That's exactly what
-    // intermittent, mostly-frozen remote cursors look like: it's not that
-    // the feature doesn't work, it's that most updates never arrive.
-    // ~10/s (matching what Figma/Google Docs-style multiplayer cursors
-    // typically use) is still visually smooth and stays well under it.
+    // Broadcast (unlike presence track(), see above) does reliably deliver
+    // every message, but still worth throttling — 60 messages/s (one per
+    // animation frame) is unnecessary for something eyes perceive as smooth
+    // at far less, and needlessly increases the chance of hitting the
+    // project's realtime rate limit. ~10/s (matching what Figma/Google
+    // Docs-style multiplayer cursors typically use) stays well under it.
     const THROTTLE_MS = 100;
     let lastSentAt = 0;
     let pendingCursor: { x: number; y: number } | null = null;
     let trailingTimeout: ReturnType<typeof setTimeout> | null = null;
 
     function broadcastCursor(cursor: { x: number; y: number } | null) {
-      payloadRef.current = { ...payloadRef.current, cursor };
-      channelRef.current?.track(payloadRef.current);
+      // metaRef, not the `self` param directly — this effect's deps are
+      // just [containerRef] (it doesn't need to re-bind the DOM listeners
+      // over a user_id that never changes mid-session), so metaRef is what
+      // stays current rather than this closure's own captured `self`.
+      const payload: CursorPayload = { user_id: metaRef.current.user_id, cursor };
+      channelRef.current?.send({ type: 'broadcast', event: 'cursor', payload });
       lastSentAt = Date.now();
     }
 
@@ -141,5 +171,5 @@ export function useBoardPresence(
     };
   }, [containerRef]);
 
-  return others;
+  return others.map((u) => ({ ...u, cursor: cursors[u.user_id] ?? null }));
 }
