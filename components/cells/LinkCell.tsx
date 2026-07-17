@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { ExternalLink, Link2 } from 'lucide-react';
 import type { LinkValue } from '@/types/database';
+import { FloatingPanel } from '../ui/FloatingPanel';
 
 function withProtocol(url: string): string {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
@@ -18,16 +19,7 @@ export function LinkCell({
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState(value?.url ?? '');
   const [text, setText] = useState(value?.text ?? '');
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  const anchorRef = useRef<HTMLDivElement>(null);
 
   function submit() {
     const trimmedUrl = url.trim();
@@ -40,7 +32,7 @@ export function LinkCell({
   }
 
   return (
-    <div ref={ref} className="relative h-full w-full">
+    <div ref={anchorRef} className="relative h-full w-full">
       <button
         type="button"
         onClick={() => {
@@ -60,46 +52,49 @@ export function LinkCell({
         )}
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-md border border-gray-200 bg-white p-3 shadow-lg">
-          <label className="mb-1 block text-[11px] font-medium text-gray-500">URL</label>
-          <input
-            autoFocus
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder="https://…"
-            className="mb-2 w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#0073ea]"
-          />
-          <label className="mb-1 block text-[11px] font-medium text-gray-500">Text</label>
-          <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder="Display text"
-            className="mb-3 w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#0073ea]"
-          />
-          <div className="flex gap-1.5">
-            {value && (
-              <a
-                href={withProtocol(value.url)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1 rounded border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                title="Open link"
-              >
-                <ExternalLink size={12} />
-              </a>
-            )}
-            <button
-              onClick={submit}
-              className="flex-1 rounded bg-[#0073ea] py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
+      <FloatingPanel
+        anchorRef={anchorRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        className="z-20 w-56 rounded-md border border-gray-200 bg-white p-3 shadow-lg"
+      >
+        <label className="mb-1 block text-[11px] font-medium text-gray-500">URL</label>
+        <input
+          autoFocus
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="https://…"
+          className="mb-2 w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#0073ea]"
+        />
+        <label className="mb-1 block text-[11px] font-medium text-gray-500">Text</label>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
+          placeholder="Display text"
+          className="mb-3 w-full rounded border border-gray-300 px-2 py-1 text-sm outline-none focus:border-[#0073ea]"
+        />
+        <div className="flex gap-1.5">
+          {value && (
+            <a
+              href={withProtocol(value.url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1 rounded border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+              title="Open link"
             >
-              Save
-            </button>
-          </div>
+              <ExternalLink size={12} />
+            </a>
+          )}
+          <button
+            onClick={submit}
+            className="flex-1 rounded bg-[#0073ea] py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
+          >
+            Save
+          </button>
         </div>
-      )}
+      </FloatingPanel>
     </div>
   );
 }

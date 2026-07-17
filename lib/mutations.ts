@@ -147,6 +147,24 @@ export async function createNewItem(
   return data;
 }
 
+// Bulk version for imports — one insert round trip for all rows instead of
+// one per item, since an imported spreadsheet can easily be dozens of rows.
+export async function createItems(groupId: string, titles: string[], startPosition: number): Promise<Item[]> {
+  if (titles.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('items')
+    .insert(titles.map((title, i) => ({ group_id: groupId, title, position: startPosition + i, cells: {} })))
+    .select();
+  if (error || !data) throw error;
+
+  for (const item of data) {
+    logActivity(item.id, 'item_created');
+  }
+
+  return data;
+}
+
 export async function createNewGroup(boardId: string, position: number, name = 'New Group'): Promise<Group> {
   const colors = ['#579bfc', '#00c875', '#fdab3d', '#a25ddc', '#e2445c', '#66ccff'];
   const color = colors[Math.floor(Math.random() * colors.length)];

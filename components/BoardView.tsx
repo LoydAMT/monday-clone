@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { ArrowUp } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useBoardPresence } from '@/lib/use-board-presence';
+import { useMediaQuery } from '@/lib/use-media-query';
 import { avatarColor, initials } from '@/lib/avatar-color';
 import type {
   Automation,
@@ -34,6 +36,7 @@ import { formatCellValue } from '@/lib/cell-format';
 import { today } from '@/lib/gantt';
 import { createNotification } from '@/lib/notifications';
 import {
+  createItems,
   createNewColumn,
   createNewGroup,
   createNewItem,
@@ -94,6 +97,42 @@ export function BoardView({
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>(initialData.attachmentCounts);
   const [exporting, setExporting] = useState(false);
   const viewContainerRef = useRef<HTMLDivElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  // On mobile, BoardHeader + BoardToolbar eat a lot of the limited vertical
+  // space — once you've scrolled down into the items, collapse them out of
+  // the way and leave just a small "back to top" button, matching the
+  // SCROLL_HIDE_THRESHOLD pattern already used for the Item column's
+  // narrow-on-scroll behavior (small threshold so trivial scroll bounces
+  // don't flicker it).
+  const compact = useMediaQuery('(max-width: 639px)');
+  const [scrolledPastTop, setScrolledPastTop] = useState(false);
+  const SCROLL_HIDE_THRESHOLD = 24;
+
+  // Kanban/Gantt overflow viewContainerRef itself (it's their real scroll
+  // container), but Table view now manages its own internal scroll region
+  // (see TableGrid's sticky-header handling) — viewContainerRef never
+  // scrolls there, so TableGrid reports its scrollTop up separately via
+  // onScrollTopChange instead of a scroll event ever reaching this div.
+  function updateScrolledPastTop(scrollTop: number) {
+    if (!compact) return;
+    const shouldHide = scrollTop > SCROLL_HIDE_THRESHOLD;
+    setScrolledPastTop((prev) => (prev === shouldHide ? prev : shouldHide));
+  }
+
+  function handleViewScroll(e: React.UIEvent<HTMLDivElement>) {
+    updateScrolledPastTop(e.currentTarget.scrollTop);
+  }
+
+  function scrollToTop() {
+    setScrolledPastTop(false);
+    // Table view scrolls inside its own internal div (tableScrollRef), not
+    // viewContainerRef — see updateScrolledPastTop above.
+    (view === 'table' ? tableScrollRef.current : viewContainerRef.current)?.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
+  }
 
   const me = members.find((m) => m.user_id === currentUserId);
   const myRole = me?.role;
@@ -397,6 +436,36 @@ export function BoardView({
       .catch(() => setItems(previous));
   }
 
+  function handleImportItems(groupId: string, groupName: string, titles: string[]) {
+    if (!canEdit) return;
+    if (groupName) handleRenameGroup(groupId, groupName);
+    if (titles.length === 0) return;
+
+    const previous = items;
+    const startPosition = items.filter((i) => i.group_id === groupId).length;
+    const tempItems: Item[] = titles.map((title, i) => ({
+      id: `temp-${crypto.randomUUID()}`,
+      group_id: groupId,
+      parent_item_id: null,
+      title,
+      cells: {},
+      position: startPosition + i,
+      deleted_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
+    setItems((prev) => [...prev, ...tempItems]);
+
+    createItems(groupId, titles, startPosition)
+      .then((created) =>
+        setItems((prev) => {
+          const withoutTemps = prev.filter((i) => !tempItems.some((t) => t.id === i.id));
+          return [...withoutTemps, ...created];
+        })
+      )
+      .catch(() => setItems(previous));
+  }
+
   function handleAddGroup() {
     if (!canEdit) return;
     const previous = groups;
@@ -479,37 +548,56 @@ export function BoardView({
 
   const openItem = items.find((i) => i.id === openItemId) ?? null;
 
+  const headerCollapsed = compact && scrolledPastTop;
+
   return (
-    <div className="flex h-screen flex-1 flex-col overflow-y-auto">
-      <BoardHeader
-        board={board}
-        view={view}
-        onViewChange={setView}
-        onRenameBoard={handleRenameBoard}
-        onUpdateDescription={handleUpdateDescription}
-        onNewItem={() => groups[0] && handleAddItem(groups[0].id)}
-        onOpenTrash={() => setTrashOpen(true)}
-        onOpenAutomations={() => setAutomationsOpen(true)}
-        onToggleEmailNotifications={handleToggleEmailNotifications}
-        onOpenShare={() => setShareOpen(true)}
-        onExport={handleExport}
-        exporting={exporting}
-        canEdit={canEdit}
-        presenceUsers={presenceUsers}
-      />
+    <div className="flex h-screen flex-1 flex-col overflow-hidden">
+      <div
+        className={`shrink-0 overflow-hidden transition-[max-height,opacity] duration-200 ease-in-out ${
+          headerCollapsed ? 'max-h-0 opacity-0' : 'max-h-[480px] opacity-100'
+        }`}
+      >
+        <BoardHeader
+          board={board}
+          view={view}
+          onViewChange={setView}
+          onRenameBoard={handleRenameBoard}
+          onUpdateDescription={handleUpdateDescription}
+          onNewItem={() => groups[0] && handleAddItem(groups[0].id)}
+          onOpenTrash={() => setTrashOpen(true)}
+          onOpenAutomations={() => setAutomationsOpen(true)}
+          onToggleEmailNotifications={handleToggleEmailNotifications}
+          onOpenShare={() => setShareOpen(true)}
+          onExport={handleExport}
+          exporting={exporting}
+          canEdit={canEdit}
+          presenceUsers={presenceUsers}
+        />
 
-      <BoardToolbar
-        columns={columns}
-        search={search}
-        onSearchChange={setSearch}
-        filters={filters}
-        onFiltersChange={setFilters}
-        sort={sort}
-        onSortChange={setSort}
-        members={members}
-      />
+        <BoardToolbar
+          columns={columns}
+          search={search}
+          onSearchChange={setSearch}
+          filters={filters}
+          onFiltersChange={setFilters}
+          sort={sort}
+          onSortChange={setSort}
+          members={members}
+        />
+      </div>
 
-      <div ref={viewContainerRef} className="relative">
+      {headerCollapsed && (
+        <button
+          type="button"
+          onClick={scrollToTop}
+          title="Back to top"
+          className="fixed left-1/2 top-2 z-50 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full bg-gray-900/80 text-white shadow-lg backdrop-blur hover:bg-gray-900"
+        >
+          <ArrowUp size={16} />
+        </button>
+      )}
+
+      <div ref={viewContainerRef} className="relative min-h-0 flex-1 overflow-y-auto" onScroll={handleViewScroll}>
         {visibleCursors.map((u) => (
           <div
             key={u.user_id}
@@ -529,6 +617,7 @@ export function BoardView({
         ))}
         {view === 'table' ? (
           <TableGrid
+            ref={tableScrollRef}
             columns={columns}
             groups={groups}
             setGroups={setGroups}
@@ -544,12 +633,14 @@ export function BoardView({
             onTitleChange={handleTitleChange}
             onRenameGroup={handleRenameGroup}
             onAddItem={handleAddItem}
+            onImportItems={handleImportItems}
             onAddGroup={handleAddGroup}
             onAddColumn={handleAddColumn}
             onOpenItem={setOpenItemId}
             onDeleteItem={handleDeleteItem}
             onRenameColumn={handleRenameColumn}
             onDeleteColumn={handleDeleteColumn}
+            onScrollTopChange={updateScrolledPastTop}
             canEdit={canEdit}
           />
         ) : view === 'kanban' ? (

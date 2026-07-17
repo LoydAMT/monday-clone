@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Plus, Upload } from 'lucide-react';
 import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } from '@/types/database';
 import { ItemRow } from './ItemRow';
 import { GroupSummaryRow } from './GroupSummaryRow';
+import { ImportItemsDialog } from './ImportItemsDialog';
 
 export function GroupSection({
   group,
@@ -23,6 +24,7 @@ export function GroupSection({
   onTitleChange,
   onRenameGroup,
   onAddItem,
+  onImportItems,
   onOpenItem,
   onDeleteItem,
   canEdit = true,
@@ -41,12 +43,20 @@ export function GroupSection({
   onTitleChange: (itemId: string, title: string) => void;
   onRenameGroup: (groupId: string, name: string) => void;
   onAddItem: (groupId: string) => void;
+  onImportItems?: (groupId: string, groupName: string, titles: string[]) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
   canEdit?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [name, setName] = useState(group.name);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // group.name only ever changes here via this component's own onBlur (in
+  // which case `name` already matches it) — except an import can now rename
+  // the group from outside, so this syncs that external change in too.
+  useEffect(() => setName(group.name), [group.name]);
   // The whole group section is one combined draggable+droppable region: the
   // handle below reorders it among sibling groups, and the same node stays
   // the drop target items resolve to when dragged into this group (matching
@@ -122,16 +132,51 @@ export function GroupSection({
           </SortableContext>
 
           {canEdit && (
-            <button
-              onClick={() => onAddItem(group.id)}
-              className="flex w-full items-center gap-1.5 border-t border-gray-100 px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-            >
-              <Plus size={13} /> Add item
-            </button>
+            <div className="flex items-stretch border-t border-gray-100">
+              <button
+                onClick={() => onAddItem(group.id)}
+                className="flex flex-1 items-center gap-1.5 px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+              >
+                <Plus size={13} /> Add item
+              </button>
+              {onImportItems && (
+                <>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Import items from an Excel file"
+                    className="flex items-center gap-1.5 border-l border-gray-100 px-3 py-2 text-xs text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+                  >
+                    <Upload size={13} /> Import
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setImportFile(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </>
+              )}
+            </div>
           )}
 
           <GroupSummaryRow columns={columns} compact={compact} itemWidth={itemWidth} narrowed={narrowed} items={items} />
         </div>
+      )}
+
+      {importFile && (
+        <ImportItemsDialog
+          file={importFile}
+          onClose={() => setImportFile(null)}
+          onImport={(groupName, titles) => {
+            onImportItems?.(group.id, groupName, titles);
+            setImportFile(null);
+          }}
+        />
       )}
     </div>
   );

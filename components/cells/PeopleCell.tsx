@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { MemberProfile } from '@/types/database';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
+import { FloatingPanel } from '../ui/FloatingPanel';
 
 export function PeopleCell({
   value,
@@ -14,24 +15,15 @@ export function PeopleCell({
   members: MemberProfile[];
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
   const assigned = members.filter((m) => value.includes(m.user_id));
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
 
   function toggle(id: string) {
     onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
   }
 
   return (
-    <div ref={ref} className="relative flex h-full w-full items-center justify-center">
+    <div ref={anchorRef} className="relative flex h-full w-full items-center justify-center">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -54,28 +46,31 @@ export function PeopleCell({
         ))}
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-48 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
-          {members.length === 0 && <p className="px-2 py-1.5 text-xs text-gray-400">No members yet.</p>}
-          {members.map((m) => (
-            <button
-              key={m.user_id}
-              type="button"
-              onClick={() => toggle(m.user_id)}
-              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-gray-50"
+      <FloatingPanel
+        anchorRef={anchorRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        className="z-20 w-48 rounded-md border border-gray-200 bg-white p-1 shadow-lg"
+      >
+        {members.length === 0 && <p className="px-2 py-1.5 text-xs text-gray-400">No members yet.</p>}
+        {members.map((m) => (
+          <button
+            key={m.user_id}
+            type="button"
+            onClick={() => toggle(m.user_id)}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-gray-50"
+          >
+            <span
+              className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
+              style={{ backgroundColor: avatarColor(m.user_id) }}
             >
-              <span
-                className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                style={{ backgroundColor: avatarColor(m.user_id) }}
-              >
-                {initials(m)}
-              </span>
-              <span className="flex-1 truncate text-gray-700">{displayName(m)}</span>
-              {value.includes(m.user_id) && <span className="text-[#0073ea]">✓</span>}
-            </button>
-          ))}
-        </div>
-      )}
+              {initials(m)}
+            </span>
+            <span className="flex-1 truncate text-gray-700">{displayName(m)}</span>
+            {value.includes(m.user_id) && <span className="text-[#0073ea]">✓</span>}
+          </button>
+        ))}
+      </FloatingPanel>
     </div>
   );
 }

@@ -104,7 +104,7 @@ export function ItemRow({
           </button>
         )}
         <div className={`min-w-0 flex-1 ${!canEdit ? 'pointer-events-none' : ''}`}>
-          <TextCell value={item.title} onChange={(title) => onTitleChange(item.id, title)} />
+          <TextCell value={item.title} onChange={(title) => onTitleChange(item.id, title)} compact={compact} />
         </div>
       </div>
 

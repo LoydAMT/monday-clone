@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { forwardRef, useMemo, useRef, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -38,30 +38,7 @@ function flatten(byGroup: ByGroup, groups: Group[]): Item[] {
   return groups.flatMap((g) => byGroup[g.id] ?? []);
 }
 
-export function TableGrid({
-  columns,
-  groups,
-  setGroups,
-  items,
-  setItems,
-  orderingLocked = false,
-  sort = null,
-  onSortChange,
-  members = [],
-  attachmentCounts = {},
-  onCellChange,
-  onOptionsChange,
-  onTitleChange,
-  onRenameGroup,
-  onAddItem,
-  onAddGroup,
-  onAddColumn,
-  onOpenItem,
-  onDeleteItem,
-  onRenameColumn,
-  onDeleteColumn,
-  canEdit = true,
-}: {
+type TableGridProps = {
   columns: Column[];
   groups: Group[];
   setGroups: (updater: Group[] | ((prev: Group[]) => Group[])) => void;
@@ -77,14 +54,50 @@ export function TableGrid({
   onTitleChange: (itemId: string, title: string) => void;
   onRenameGroup: (groupId: string, name: string) => void;
   onAddItem: (groupId: string) => void;
+  onImportItems?: (groupId: string, groupName: string, titles: string[]) => void;
   onAddGroup: () => void;
   onAddColumn: (name: string, type: Column['type']) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
   onRenameColumn?: (columnId: string, name: string) => void;
   onDeleteColumn?: (columnId: string) => void;
+  onScrollTopChange?: (scrollTop: number) => void;
   canEdit?: boolean;
-}) {
+};
+
+// Forwards a ref to the div that actually scrolls (both axes — see the
+// sticky-header comment below) so BoardView can drive it back to top from
+// its own "back to top" button on mobile; that button can't reach this
+// div's internal scroll state any other way.
+export const TableGrid = forwardRef<HTMLDivElement, TableGridProps>(function TableGrid(
+  {
+    columns,
+    groups,
+    setGroups,
+    items,
+    setItems,
+    orderingLocked = false,
+    sort = null,
+    onSortChange,
+    members = [],
+    attachmentCounts = {},
+    onCellChange,
+    onOptionsChange,
+    onTitleChange,
+    onRenameGroup,
+    onAddItem,
+    onImportItems,
+    onAddGroup,
+    onAddColumn,
+    onOpenItem,
+    onDeleteItem,
+    onRenameColumn,
+    onDeleteColumn,
+    onScrollTopChange,
+    canEdit = true,
+  },
+  scrollRef
+) {
   const [activeItem, setActiveItem] = useState<Item | null>(null);
   const [activeGroup, setActiveGroup] = useState<Group | null>(null);
   const snapshotRef = useRef<Item[] | null>(null);
@@ -101,6 +114,12 @@ export function TableGrid({
   const NARROW_SCROLL_THRESHOLD = 24;
 
   function handleScroll(e: React.UIEvent<HTMLDivElement>) {
+    // This div (not BoardView's outer viewContainerRef) is the one that
+    // actually scrolls vertically now — see the sticky-header comment below
+    // — so it's also the one that has to report scroll position back up for
+    // BoardView's mobile collapse-the-toolbar-on-scroll behavior.
+    onScrollTopChange?.(e.currentTarget.scrollTop);
+
     if (!compact) return;
     const shouldNarrow = e.currentTarget.scrollLeft > NARROW_SCROLL_THRESHOLD;
     setItemNarrowed((prev) => (prev === shouldNarrow ? prev : shouldNarrow));
@@ -261,13 +280,13 @@ export function TableGrid({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="px-6 py-4">
+      <div className="flex h-full flex-col px-6 py-4">
         {orderingLocked && (
-          <p className="mb-2 text-[11px] text-gray-400">Clear search, filters, or sort to drag-reorder items.</p>
+          <p className="mb-2 shrink-0 text-[11px] text-gray-400">Clear search, filters, or sort to drag-reorder items.</p>
         )}
-        {/* Header and rows share one horizontal scroll container so they move
-            together — enough columns (e.g. adding Progress on top of Status/
-            People/Timeline/Link/Date/Files) push total width past the
+        {/* Header and rows share one scroll container so they move together
+            horizontally — enough columns (e.g. adding Progress on top of
+            Status/People/Timeline/Link/Date/Files) push total width past the
             viewport, and without this the extra columns were unreachable.
             Each grid below gets an explicit pixel width (not just a
             min-w-fit wrapper) — fit-content sizing for a CSS Grid nested in
@@ -280,10 +299,19 @@ export function TableGrid({
             carry you straight past the un-narrow threshold to the next
             column's snap point, making it impossible to scroll back to the
             wide/unlocked state. Free-scroll + the JS threshold below is what
-            actually delivers "slide, then lock." */}
-        <div className="overflow-x-auto" onScroll={handleScroll}>
+            actually delivers "slide, then lock."
+            This div also owns the *vertical* scroll rather than leaving that
+            to the page — the header's sticky top-0 below only sticks to this
+            div, so this has to be the thing that actually scrolls
+            vertically, not just horizontally. Its height comes from CSS
+            (min-h-0 flex-1, bounded in turn by BoardView's flex layout) —
+            not a one-off JS measurement — so it self-corrects on every
+            reflow instead of going stale the moment anything above it
+            (BoardHeader wrapping, presence avatars loading in, etc.)
+            changes height after mount. */}
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto" onScroll={handleScroll}>
           <div
-            className="grid rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500 max-sm:text-[10px]"
+            className="sticky top-0 z-20 grid rounded-t-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-500 max-sm:text-[10px]"
             style={{
               gridTemplateColumns: headerGridTemplate(effectiveColumns, compact, effectiveItemWidth, mobileNarrowed),
               width: totalGridWidth(effectiveColumns, compact, effectiveItemWidth, mobileNarrowed),
@@ -356,6 +384,7 @@ export function TableGrid({
                   onTitleChange={onTitleChange}
                   onRenameGroup={onRenameGroup}
                   onAddItem={onAddItem}
+                  onImportItems={onImportItems}
                   onOpenItem={onOpenItem}
                   onDeleteItem={onDeleteItem}
                   canEdit={canEdit}
@@ -363,16 +392,16 @@ export function TableGrid({
               ))}
             </SortableContext>
           </div>
-        </div>
 
-        {canEdit && (
-          <button
-            onClick={onAddGroup}
-            className="flex items-center gap-1.5 rounded-md px-2 py-2 text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600"
-          >
-            <Plus size={15} /> Add group
-          </button>
-        )}
+          {canEdit && (
+            <button
+              onClick={onAddGroup}
+              className="sticky left-0 flex items-center gap-1.5 rounded-md px-2 py-2 text-sm text-gray-400 hover:bg-gray-50 hover:text-gray-600"
+            >
+              <Plus size={15} /> Add group
+            </button>
+          )}
+        </div>
       </div>
 
       <DragOverlay>
@@ -394,4 +423,4 @@ export function TableGrid({
       </DragOverlay>
     </DndContext>
   );
-}
+});
