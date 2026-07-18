@@ -9,13 +9,15 @@ function fmt(date: string) {
   return new Date(date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-// How many days the item is scheduled to take (end - start), not days
-// remaining — a fixed span rather than a countdown. Colored orange before
+// How many days the item is scheduled to take, not days remaining — a fixed
+// span rather than a countdown. Inclusive of both endpoints (start == end is
+// 1 day, not 0 — same convention the Gantt bar width already uses) since a
+// task worked on for a single day still took a day. Colored orange before
 // the start date arrives (work hasn't begun yet) and red once it has
 // (started, no longer changes as the deadline approaches — isDone above
 // already covers the "finished" case separately).
 function durationInfo(start: string, end: string): { label: string; title: string; started: boolean } {
-  const duration = daysBetween(start, end);
+  const duration = daysBetween(start, end) + 1;
   const started = daysBetween(start, today()) >= 0;
   return {
     label: `${duration}d`,
