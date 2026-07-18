@@ -9,12 +9,19 @@ function fmt(date: string) {
   return new Date(date + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function daysLeftInfo(end: string): { label: string; title: string } {
-  const diff = daysBetween(today(), end);
-  if (diff > 0) return { label: `${diff}d`, title: `${diff} day${diff === 1 ? '' : 's'} left` };
-  if (diff === 0) return { label: 'Today', title: 'Due today' };
-  const overdue = Math.abs(diff);
-  return { label: `${overdue}d over`, title: `${overdue} day${overdue === 1 ? '' : 's'} overdue` };
+// How many days the item is scheduled to take (end - start), not days
+// remaining — a fixed span rather than a countdown. Colored orange before
+// the start date arrives (work hasn't begun yet) and red once it has
+// (started, no longer changes as the deadline approaches — isDone above
+// already covers the "finished" case separately).
+function durationInfo(start: string, end: string): { label: string; title: string; started: boolean } {
+  const duration = daysBetween(start, end);
+  const started = daysBetween(start, today()) >= 0;
+  return {
+    label: `${duration}d`,
+    title: `${duration} day${duration === 1 ? '' : 's'} to finish — ${started ? 'started' : 'not started yet'}`,
+    started,
+  };
 }
 
 // M/D, no leading zeros — e.g. "7/14".
@@ -46,6 +53,8 @@ export function TimelineCell({
     setOpen(false);
   }
 
+  const duration = value ? durationInfo(value.start, value.end) : null;
+
   return (
     <div ref={anchorRef} className="relative h-full w-full">
       <button
@@ -68,10 +77,12 @@ export function TimelineCell({
               </span>
             ) : (
               <span
-                className="shrink-0 text-[11px] font-semibold text-red-500"
-                title={daysLeftInfo(value.end).title}
+                className={`shrink-0 text-[11px] font-semibold ${
+                  duration!.started ? 'text-red-500' : 'text-[#fdab3d]'
+                }`}
+                title={duration!.title}
               >
-                {daysLeftInfo(value.end).label}
+                {duration!.label}
               </span>
             )}
           </>
