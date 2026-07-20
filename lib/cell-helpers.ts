@@ -29,5 +29,7 @@ export function getCellValue(column: Column, item: Item): CellValue {
       return { type: 'file', value: null };
     case 'progress':
       return { type: 'progress', value: null };
+    case 'linked_record':
+      return { type: 'linked_record', value: null };
   }
 }

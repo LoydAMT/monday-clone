@@ -1,14 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
-import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } from '@/types/database';
+import type { CellValue, Column, ColumnOptions, Group, Item, LinkedItemSummary, MemberProfile, ReverseLinkedItem } from '@/types/database';
 import { Modal } from './ui/Modal';
 import { Cell } from './cells/Cell';
 import { getCellValue } from '@/lib/cell-helpers';
 import { SubitemsList } from './SubitemsList';
 import { ItemThread } from './ItemThread';
 import { AttachmentsList } from './AttachmentsList';
+import { getLinkedFrom } from '@/lib/linked-items';
 
 export function ItemDetailModal({
   item,
@@ -26,6 +28,9 @@ export function ItemDetailModal({
   onUndoableAction,
   attachmentCount = 0,
   onAttachmentCountChange,
+  linkedRecordsByCell = {},
+  onAddLinkedRecord,
+  onRemoveLinkedRecord,
   canEdit = true,
 }: {
   item: Item;
@@ -43,6 +48,9 @@ export function ItemDetailModal({
   onUndoableAction?: (message: string, onUndo: () => void) => void;
   attachmentCount?: number;
   onAttachmentCountChange?: (itemId: string, delta: number) => void;
+  linkedRecordsByCell?: Record<string, LinkedItemSummary[]>;
+  onAddLinkedRecord?: (columnId: string, itemId: string, targetItemId: string, targetTitle: string) => void;
+  onRemoveLinkedRecord?: (columnId: string, itemId: string, linkId: string) => void;
   canEdit?: boolean;
 }) {
   const [title, setTitle] = useState(item.title);
@@ -57,6 +65,21 @@ export function ItemDetailModal({
       return cell.type === 'people' ? cell.value : [];
     })
     .filter((id, i, arr) => arr.indexOf(id) === i && id !== currentUserId);
+
+  const router = useRouter();
+  // Items elsewhere (any board, any linked_record column) that link INTO
+  // this item — computed live rather than requiring a matching column
+  // configured on both boards. Re-fetched whenever a different item opens.
+  const [linkedFrom, setLinkedFrom] = useState<ReverseLinkedItem[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getLinkedFrom(item.id).then((data) => {
+      if (!cancelled) setLinkedFrom(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.id]);
 
   return (
     <Modal onClose={onClose} widthClassName="max-w-xl">
@@ -84,6 +107,11 @@ export function ItemDetailModal({
                     members={members}
                     attachmentCount={attachmentCount}
                     isDone={isItemDone}
+                    linkedRecords={linkedRecordsByCell[`${column.id}:${item.id}`] ?? []}
+                    onAddLinkedRecord={(targetItemId, targetTitle) =>
+                      onAddLinkedRecord?.(column.id, item.id, targetItemId, targetTitle)
+                    }
+                    onRemoveLinkedRecord={(linkId) => onRemoveLinkedRecord?.(column.id, item.id, linkId)}
                   />
                 </div>
               </div>
@@ -124,6 +152,30 @@ export function ItemDetailModal({
             onUndoableAction={onUndoableAction}
           />
         </div>
+
+        {linkedFrom.length > 0 && (
+          <div className="mb-5">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Linked from</h3>
+            <div className="space-y-1">
+              {linkedFrom.map((link) => (
+                <button
+                  key={link.linkId}
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    router.push(`/board/${link.boardId}?item=${link.itemId}`);
+                  }}
+                  className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-gray-50"
+                >
+                  <span className="truncate font-medium text-gray-700">{link.title}</span>
+                  <span className="shrink-0 pl-2 text-gray-400">
+                    via {link.columnName} ({link.boardName})
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {canEdit && (
           <div className="border-t border-gray-100 pt-3">

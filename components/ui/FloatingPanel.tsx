@@ -50,8 +50,15 @@ export function FloatingPanel({
     // The anchor moves (or scrolls out of view entirely) the moment any
     // scrollable ancestor scrolls — closing on scroll/resize avoids a
     // fixed-position popup drifting away from the cell it belongs to,
-    // rather than trying to keep re-measuring and following it.
-    function handleReposition() {
+    // rather than trying to keep re-measuring and following it. But a plain
+    // <input> fires its own native 'scroll' event on itself once its typed
+    // text overflows and scrolls horizontally — with a capture-phase
+    // listener that reaches every element, that self-inflicted scroll was
+    // being treated the same as the table scrolling, closing the panel
+    // mid-keystroke. Only close for scrolls that originate outside the
+    // panel itself.
+    function handleReposition(e: Event) {
+      if (panelRef.current?.contains(e.target as Node)) return;
       onClose();
     }
 

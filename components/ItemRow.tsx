@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Maximize2, Trash2 } from 'lucide-react';
-import type { CellValue, Column, ColumnOptions, Item, MemberProfile } from '@/types/database';
+import type { CellValue, Column, ColumnOptions, Item, LinkedItemSummary, MemberProfile } from '@/types/database';
 import { Cell } from './cells/Cell';
 import { getCellValue } from '@/lib/cell-helpers';
 import { handleTrackWidth, rowGridTemplate, totalGridWidth } from '@/lib/grid';
@@ -20,11 +20,14 @@ export function ItemRow({
   orderingLocked = false,
   members = [],
   attachmentCounts = {},
+  linkedRecordsByCell = {},
   onCellChange,
   onOptionsChange,
   onTitleChange,
   onOpenItem,
   onDeleteItem,
+  onAddLinkedRecord,
+  onRemoveLinkedRecord,
   canEdit = true,
 }: {
   item: Item;
@@ -35,11 +38,14 @@ export function ItemRow({
   orderingLocked?: boolean;
   members?: MemberProfile[];
   attachmentCounts?: Record<string, number>;
+  linkedRecordsByCell?: Record<string, LinkedItemSummary[]>;
   onCellChange: (itemId: string, columnId: string, value: CellValue) => void;
   onOptionsChange?: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  onAddLinkedRecord?: (columnId: string, itemId: string, targetItemId: string, targetTitle: string) => void;
+  onRemoveLinkedRecord?: (columnId: string, itemId: string, linkId: string) => void;
   canEdit?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -126,6 +132,11 @@ export function ItemRow({
               onOpenItem={() => onOpenItem?.(item.id)}
               attachmentCount={attachmentCounts[item.id] ?? 0}
               isDone={isItemDone}
+              linkedRecords={linkedRecordsByCell[`${column.id}:${item.id}`] ?? []}
+              onAddLinkedRecord={(targetItemId, targetTitle) =>
+                onAddLinkedRecord?.(column.id, item.id, targetItemId, targetTitle)
+              }
+              onRemoveLinkedRecord={(linkId) => onRemoveLinkedRecord?.(column.id, item.id, linkId)}
             />
           </div>
         );

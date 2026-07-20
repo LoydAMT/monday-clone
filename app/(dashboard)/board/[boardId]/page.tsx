@@ -5,6 +5,7 @@ import {
   getBoardContents,
   getBoardRow,
   getShareLinks,
+  getSiblingBoards,
   getWorkspaceMembersForBoard,
 } from '@/lib/queries';
 import { BoardView } from '@/components/BoardView';
@@ -31,6 +32,11 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
   if (!session) redirect('/login');
   if (!board) notFound();
 
+  // Needs board.workspace_id, so it can't join the batch above — the only
+  // step left waiting on a prior query's result, same reasoning as
+  // getBoardContents' own attachments/linked-records fetch.
+  const siblingBoards = await getSiblingBoards(supabase, board.workspace_id, board.id);
+
   return (
     <BoardView
       initialData={{ board, ...contents }}
@@ -38,6 +44,7 @@ export default async function BoardPage({ params }: { params: Promise<{ boardId:
       currentUserId={session.user.id}
       initialAutomations={automations}
       initialShareLinks={shareLinks}
+      siblingBoards={siblingBoards}
     />
   );
 }

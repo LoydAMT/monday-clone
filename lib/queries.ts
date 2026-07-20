@@ -1,5 +1,14 @@
 import { createClient } from '@/utils/supabase/server';
-import type { Automation, Board, BoardData, BoardShareLink, Item, MemberProfile, Workspace } from '@/types/database';
+import type {
+  Automation,
+  Board,
+  BoardData,
+  BoardShareLink,
+  Item,
+  LinkedItemSummary,
+  MemberProfile,
+  Workspace,
+} from '@/types/database';
 
 export interface WorkspaceWithBoards extends Workspace {
   boards: Board[];
@@ -142,13 +151,50 @@ export async function getBoardContents(
   });
 
   const itemIds = items.map((i) => i.id);
-  const { data: attachmentRows } = itemIds.length
-    ? await supabase.from('attachments').select('item_id').in('item_id', itemIds)
-    : { data: [] };
+  const linkedColumnIds = (columns ?? []).filter((c) => c.type === 'linked_record').map((c) => c.id);
+
+  // Both of these only need itemIds/columns (already resolved above), not
+  // each other, so they go out together rather than one after the other.
+  const [{ data: attachmentRows }, { data: rawLinkRows }] = await Promise.all([
+    itemIds.length
+      ? supabase.from('attachments').select('item_id').in('item_id', itemIds)
+      : Promise.resolve({ data: [] as { item_id: string }[] }),
+    linkedColumnIds.length && itemIds.length
+      ? supabase
+          .from('linked_items')
+          .select('id, column_id, source_item_id, target:items!linked_items_target_item_id_fkey(id, title, deleted_at)')
+          .in('column_id', linkedColumnIds)
+          .in('source_item_id', itemIds)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const attachmentCounts: Record<string, number> = {};
   for (const row of attachmentRows ?? []) {
     attachmentCounts[row.item_id] = (attachmentCounts[row.item_id] ?? 0) + 1;
+  }
+
+  // Untyped Supabase client (no generated schema types in this project)
+  // infers a to-one embed like `target` as an array — it's actually a single
+  // row or null at runtime, since linked_items.target_item_id -> items.id is
+  // a many-to-one FK from this table's perspective. Cast rather than fight
+  // the inference, same as the `items` embed above.
+  type LinkRow = {
+    id: string;
+    column_id: string;
+    source_item_id: string;
+    target: { id: string; title: string; deleted_at: string | null } | null;
+  };
+  const linkRows = (rawLinkRows ?? []) as unknown as LinkRow[];
+
+  // linked_items rows aren't cleaned up when their target is soft-deleted
+  // (trash), only hard-deleted (FK cascade) — skip rows whose target is
+  // gone or trashed rather than showing a chip for something the user can't
+  // actually open.
+  const linkedRecordsByCell: Record<string, LinkedItemSummary[]> = {};
+  for (const row of linkRows) {
+    if (!row.target || row.target.deleted_at) continue;
+    const key = `${row.column_id}:${row.source_item_id}`;
+    (linkedRecordsByCell[key] ??= []).push({ linkId: row.id, itemId: row.target.id, title: row.target.title });
   }
 
   return {
@@ -156,6 +202,7 @@ export async function getBoardContents(
     groups: groups ?? [],
     items,
     attachmentCounts,
+    linkedRecordsByCell,
   };
 }
 
@@ -181,6 +228,24 @@ export async function getShareLinks(
     .select('*')
     .eq('board_id', boardId)
     .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Which other boards a new linked_record column on this board could target —
+// same-workspace only (see the migration's RLS policies, which enforce this
+// same restriction server-side, not just here).
+export async function getSiblingBoards(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  workspaceId: string,
+  excludeBoardId: string
+): Promise<Pick<Board, 'id' | 'name'>[]> {
+  const { data, error } = await supabase
+    .from('boards')
+    .select('id, name')
+    .eq('workspace_id', workspaceId)
+    .neq('id', excludeBoardId)
+    .order('name', { ascending: true });
   if (error) throw error;
   return data ?? [];
 }

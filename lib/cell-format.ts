@@ -35,5 +35,11 @@ export function formatCellValue(cell: CellValue, members: MemberProfile[]): stri
       return '';
     case 'progress':
       return cell.value === null ? '' : `${cell.value}%`;
+    // Real titles live in the linked_items table, not reachable from a bare
+    // CellValue (its value is always null — see types/database.ts) — CSV
+    // export and activity-log text won't show linked titles until this
+    // function's signature grows to accept the batched summary map too.
+    case 'linked_record':
+      return '';
   }
 }

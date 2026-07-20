@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ArrowDown, ArrowUp, GripVertical, Plus } from 'lucide-react';
-import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } from '@/types/database';
+import type { CellValue, Column, ColumnOptions, Group, Item, LinkedItemSummary, MemberProfile } from '@/types/database';
 import { GroupSection } from './GroupSection';
 import { AddColumnButton } from './AddColumnButton';
 import { ColumnHeaderMenu } from './ColumnHeaderMenu';
@@ -49,6 +49,8 @@ type TableGridProps = {
   onSortChange?: (sort: SortState | null) => void;
   members?: MemberProfile[];
   attachmentCounts?: Record<string, number>;
+  linkedRecordsByCell?: Record<string, LinkedItemSummary[]>;
+  boards?: { id: string; name: string }[];
   onCellChange: (itemId: string, columnId: string, value: CellValue) => void;
   onOptionsChange?: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
@@ -56,9 +58,11 @@ type TableGridProps = {
   onAddItem: (groupId: string) => void;
   onImportItems?: (groupId: string, groupName: string, titles: string[]) => void;
   onAddGroup: () => void;
-  onAddColumn: (name: string, type: Column['type']) => void;
+  onAddColumn: (name: string, type: Column['type'], options?: Partial<ColumnOptions>) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  onAddLinkedRecord?: (columnId: string, itemId: string, targetItemId: string, targetTitle: string) => void;
+  onRemoveLinkedRecord?: (columnId: string, itemId: string, linkId: string) => void;
   onRenameColumn?: (columnId: string, name: string) => void;
   onDeleteColumn?: (columnId: string) => void;
   onScrollTopChange?: (scrollTop: number) => void;
@@ -81,6 +85,8 @@ export const TableGrid = forwardRef<HTMLDivElement, TableGridProps>(function Tab
     onSortChange,
     members = [],
     attachmentCounts = {},
+    linkedRecordsByCell = {},
+    boards = [],
     onCellChange,
     onOptionsChange,
     onTitleChange,
@@ -91,6 +97,8 @@ export const TableGrid = forwardRef<HTMLDivElement, TableGridProps>(function Tab
     onAddColumn,
     onOpenItem,
     onDeleteItem,
+    onAddLinkedRecord,
+    onRemoveLinkedRecord,
     onRenameColumn,
     onDeleteColumn,
     onScrollTopChange,
@@ -362,7 +370,7 @@ export const TableGrid = forwardRef<HTMLDivElement, TableGridProps>(function Tab
                 )}
               </div>
             ))}
-            {canEdit ? <AddColumnButton onAdd={onAddColumn} /> : <div />}
+            {canEdit ? <AddColumnButton onAdd={onAddColumn} boards={boards} /> : <div />}
           </div>
 
           <div className="mt-3">
@@ -379,6 +387,7 @@ export const TableGrid = forwardRef<HTMLDivElement, TableGridProps>(function Tab
                   orderingLocked={orderingLocked}
                   members={members}
                   attachmentCounts={attachmentCounts}
+                  linkedRecordsByCell={linkedRecordsByCell}
                   onCellChange={onCellChange}
                   onOptionsChange={onOptionsChange}
                   onTitleChange={onTitleChange}
@@ -387,6 +396,8 @@ export const TableGrid = forwardRef<HTMLDivElement, TableGridProps>(function Tab
                   onImportItems={onImportItems}
                   onOpenItem={onOpenItem}
                   onDeleteItem={onDeleteItem}
+                  onAddLinkedRecord={onAddLinkedRecord}
+                  onRemoveLinkedRecord={onRemoveLinkedRecord}
                   canEdit={canEdit}
                 />
               ))}

@@ -17,6 +17,7 @@ import type {
   ColumnType,
   Group,
   Item,
+  LinkedItemSummary,
   MemberProfile,
 } from '@/types/database';
 import { DEFAULT_STATUS_OPTIONS } from '@/types/database';
@@ -35,6 +36,7 @@ import { boardToCsv, downloadTextFile, exportNodeAsPdf, exportNodeAsPng } from '
 import { formatCellValue } from '@/lib/cell-format';
 import { today } from '@/lib/gantt';
 import { createNotification } from '@/lib/notifications';
+import { addLinkedItem, removeLinkedItem } from '@/lib/linked-items';
 import {
   createItems,
   createNewColumn,
@@ -60,12 +62,17 @@ export function BoardView({
   currentUserId,
   initialAutomations = [],
   initialShareLinks = [],
+  siblingBoards = [],
 }: {
   initialData: BoardData;
   members?: MemberProfile[];
   currentUserId: string;
   initialAutomations?: Automation[];
   initialShareLinks?: BoardShareLink[];
+  // Other boards in this workspace a new linked_record column could target —
+  // fetched once server-side (getSiblingBoards), not something that changes
+  // during a session, so it's a plain prop rather than state.
+  siblingBoards?: { id: string; name: string }[];
 }) {
   const [board, setBoard] = useState(initialData.board);
   const [columns, setColumns] = useState<Column[]>(initialData.columns);
@@ -99,6 +106,9 @@ export function BoardView({
   const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>(initialData.attachmentCounts);
+  const [linkedRecordsByCell, setLinkedRecordsByCell] = useState<Record<string, LinkedItemSummary[]>>(
+    initialData.linkedRecordsByCell
+  );
   const [exporting, setExporting] = useState(false);
   const viewContainerRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -492,7 +502,7 @@ export function BoardView({
       .catch(() => setGroups(previous));
   }
 
-  function handleAddColumn(name: string, type: ColumnType) {
+  function handleAddColumn(name: string, type: ColumnType, extraOptions?: Partial<ColumnOptions>) {
     if (!canEdit) return;
     const previous = columns;
     const position = columns.length;
@@ -503,7 +513,9 @@ export function BoardView({
           ? { tags: DEFAULT_STATUS_OPTIONS }
           : type === 'rating'
             ? { ratingMax: 5 }
-            : {};
+            : type === 'linked_record'
+              ? { linkedBoardId: extraOptions?.linkedBoardId }
+              : {};
     const tempId = `temp-${crypto.randomUUID()}`;
     const tempColumn: Column = {
       id: tempId,
@@ -520,6 +532,40 @@ export function BoardView({
     createNewColumn(board.id, position, name, type, options)
       .then((created) => setColumns((prev) => prev.map((c) => (c.id === tempId ? created : c))))
       .catch(() => setColumns(previous));
+  }
+
+  function handleAddLinkedRecord(columnId: string, itemId: string, targetItemId: string, targetTitle: string) {
+    if (!canEdit) return;
+    const columnName = columns.find((c) => c.id === columnId)?.name ?? 'Linked record';
+    const key = `${columnId}:${itemId}`;
+    const previous = linkedRecordsByCell[key] ?? [];
+    const tempLinkId = `temp-${crypto.randomUUID()}`;
+    setLinkedRecordsByCell((prev) => ({
+      ...prev,
+      [key]: [...(prev[key] ?? []), { linkId: tempLinkId, itemId: targetItemId, title: targetTitle }],
+    }));
+
+    addLinkedItem(columnId, columnName, itemId, targetItemId, targetTitle)
+      .then(({ id }) =>
+        setLinkedRecordsByCell((prev) => ({
+          ...prev,
+          [key]: (prev[key] ?? []).map((r) => (r.linkId === tempLinkId ? { ...r, linkId: id } : r)),
+        }))
+      )
+      .catch(() => setLinkedRecordsByCell((prev) => ({ ...prev, [key]: previous })));
+  }
+
+  function handleRemoveLinkedRecord(columnId: string, itemId: string, linkId: string) {
+    if (!canEdit) return;
+    const columnName = columns.find((c) => c.id === columnId)?.name ?? 'Linked record';
+    const key = `${columnId}:${itemId}`;
+    const previous = linkedRecordsByCell[key] ?? [];
+    const removedTitle = previous.find((r) => r.linkId === linkId)?.title ?? '';
+    setLinkedRecordsByCell((prev) => ({ ...prev, [key]: previous.filter((r) => r.linkId !== linkId) }));
+
+    removeLinkedItem(linkId, itemId, columnName, removedTitle).catch(() =>
+      setLinkedRecordsByCell((prev) => ({ ...prev, [key]: previous }))
+    );
   }
 
   async function handleExport() {
@@ -632,6 +678,8 @@ export function BoardView({
             onSortChange={setSort}
             members={members}
             attachmentCounts={attachmentCounts}
+            linkedRecordsByCell={linkedRecordsByCell}
+            boards={siblingBoards}
             onCellChange={handleCellChange}
             onOptionsChange={handleColumnOptionsChange}
             onTitleChange={handleTitleChange}
@@ -642,6 +690,8 @@ export function BoardView({
             onAddColumn={handleAddColumn}
             onOpenItem={setOpenItemId}
             onDeleteItem={handleDeleteItem}
+            onAddLinkedRecord={handleAddLinkedRecord}
+            onRemoveLinkedRecord={handleRemoveLinkedRecord}
             onRenameColumn={handleRenameColumn}
             onDeleteColumn={handleDeleteColumn}
             onScrollTopChange={updateScrolledPastTop}
@@ -686,6 +736,9 @@ export function BoardView({
           onUndoableAction={showToast}
           attachmentCount={attachmentCounts[openItem.id] ?? 0}
           onAttachmentCountChange={handleAttachmentCountChange}
+          linkedRecordsByCell={linkedRecordsByCell}
+          onAddLinkedRecord={handleAddLinkedRecord}
+          onRemoveLinkedRecord={handleRemoveLinkedRecord}
           canEdit={canEdit}
         />
       )}

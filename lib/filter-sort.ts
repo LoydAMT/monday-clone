@@ -37,6 +37,11 @@ function cellText(value: CellValue | undefined): string {
       return '';
     case 'progress':
       return value.value !== null ? `${value.value}%` : '';
+    // Real titles live in the linked_items table, not reachable from a bare
+    // CellValue — same limitation as formatCellValue in lib/cell-format.ts.
+    // Board search won't match on linked-record titles for now.
+    case 'linked_record':
+      return '';
   }
 }
 

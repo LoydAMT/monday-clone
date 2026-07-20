@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, ChevronRight, GripVertical, Plus, Upload } from 'lucide-react';
-import type { CellValue, Column, ColumnOptions, Group, Item, MemberProfile } from '@/types/database';
+import type { CellValue, Column, ColumnOptions, Group, Item, LinkedItemSummary, MemberProfile } from '@/types/database';
 import { ItemRow } from './ItemRow';
 import { GroupSummaryRow } from './GroupSummaryRow';
 import { ImportItemsDialog } from './ImportItemsDialog';
@@ -19,6 +19,7 @@ export function GroupSection({
   orderingLocked = false,
   members = [],
   attachmentCounts = {},
+  linkedRecordsByCell = {},
   onCellChange,
   onOptionsChange,
   onTitleChange,
@@ -27,6 +28,8 @@ export function GroupSection({
   onImportItems,
   onOpenItem,
   onDeleteItem,
+  onAddLinkedRecord,
+  onRemoveLinkedRecord,
   canEdit = true,
 }: {
   group: Group;
@@ -38,6 +41,7 @@ export function GroupSection({
   orderingLocked?: boolean;
   members?: MemberProfile[];
   attachmentCounts?: Record<string, number>;
+  linkedRecordsByCell?: Record<string, LinkedItemSummary[]>;
   onCellChange: (itemId: string, columnId: string, value: CellValue) => void;
   onOptionsChange?: (columnId: string, options: ColumnOptions) => void;
   onTitleChange: (itemId: string, title: string) => void;
@@ -46,6 +50,8 @@ export function GroupSection({
   onImportItems?: (groupId: string, groupName: string, titles: string[]) => void;
   onOpenItem?: (itemId: string) => void;
   onDeleteItem?: (itemId: string) => void;
+  onAddLinkedRecord?: (columnId: string, itemId: string, targetItemId: string, targetTitle: string) => void;
+  onRemoveLinkedRecord?: (columnId: string, itemId: string, linkId: string) => void;
   canEdit?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -129,11 +135,14 @@ export function GroupSection({
                 orderingLocked={orderingLocked}
                 members={members}
                 attachmentCounts={attachmentCounts}
+                linkedRecordsByCell={linkedRecordsByCell}
                 onCellChange={onCellChange}
                 onOptionsChange={onOptionsChange}
                 onTitleChange={onTitleChange}
                 onOpenItem={onOpenItem}
                 onDeleteItem={onDeleteItem}
+                onAddLinkedRecord={onAddLinkedRecord}
+                onRemoveLinkedRecord={onRemoveLinkedRecord}
                 canEdit={canEdit}
               />
             ))}

@@ -10,7 +10,8 @@ export type ColumnType =
   | 'rating'
   | 'timeline'
   | 'file'
-  | 'progress';
+  | 'progress'
+  | 'linked_record';
 
 export interface StatusOption {
   label: string;
@@ -22,6 +23,12 @@ export interface ColumnOptions {
   tags?: StatusOption[];
   ratingMax?: number;
   width?: number;
+  // Which board a `linked_record` column searches/links against — chosen
+  // once at column creation and not editable after (see ColumnHeaderMenu,
+  // which has no per-type settings precedent to hang a "change board" UI
+  // off today). Not validated by RLS, same as `statuses`/`tags` above —
+  // client-trusted config, not a security boundary.
+  linkedBoardId?: string;
 }
 
 export interface LinkValue {
@@ -89,7 +96,13 @@ export type CellValue =
   // cell value itself is unused and exists only so Cell.tsx's switch on
   // cellValue.type stays exhaustive like every other column type.
   | { type: 'file'; value: null }
-  | { type: 'progress'; value: number | null };
+  | { type: 'progress'; value: number | null }
+  // Same reasoning as `file` above — real data lives in the `linked_items`
+  // join table (keyed by column_id + source_item_id), not in this jsonb
+  // blob, since a cell can link to multiple other-board items and jsonb
+  // arrays of ids would make cascade cleanup on item deletion invisible to
+  // the database instead of automatic via FK.
+  | { type: 'linked_record'; value: null };
 
 export type ItemCells = Record<string, CellValue>;
 
@@ -194,12 +207,37 @@ export interface BoardShareLink {
   revoked_at: string | null;
 }
 
+// Forward direction — items a given cell links out to. linkId is
+// linked_items.id (needed to remove the link); itemId is the target item.
+export interface LinkedItemSummary {
+  linkId: string;
+  itemId: string;
+  title: string;
+}
+
+// Reverse direction — items elsewhere (any board, any linked_record column)
+// that link INTO a given item. Powers ItemDetailModal's "Linked from"
+// section, computed live rather than requiring a matching column on both
+// boards.
+export interface ReverseLinkedItem {
+  linkId: string;
+  itemId: string;
+  title: string;
+  boardId: string;
+  boardName: string;
+  columnName: string;
+}
+
 export interface BoardData {
   board: Board;
   columns: Column[];
   groups: Group[];
   items: Item[];
   attachmentCounts: Record<string, number>;
+  // Keyed by `${columnId}:${itemId}` rather than itemId alone — a board can
+  // have more than one linked_record column (pointing at different boards),
+  // so per-item keying alone would collide entries across columns.
+  linkedRecordsByCell: Record<string, LinkedItemSummary[]>;
 }
 
 export const DEFAULT_STATUS_OPTIONS: StatusOption[] = [

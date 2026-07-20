@@ -1,6 +1,6 @@
 'use client';
 
-import type { CellValue, Column, ColumnOptions, MemberProfile } from '@/types/database';
+import type { CellValue, Column, ColumnOptions, LinkedItemSummary, MemberProfile } from '@/types/database';
 import { TextCell } from './TextCell';
 import { StatusCell } from './StatusCell';
 import { PeopleCell } from './PeopleCell';
@@ -13,6 +13,7 @@ import { RatingCell } from './RatingCell';
 import { TimelineCell } from './TimelineCell';
 import { FileCell } from './FileCell';
 import { ProgressCell } from './ProgressCell';
+import { LinkedRecordCell } from './LinkedRecordCell';
 
 export function Cell({
   column,
@@ -23,6 +24,9 @@ export function Cell({
   onOpenItem,
   attachmentCount = 0,
   isDone = false,
+  linkedRecords = [],
+  onAddLinkedRecord,
+  onRemoveLinkedRecord,
 }: {
   column: Column;
   cellValue: CellValue;
@@ -35,6 +39,9 @@ export function Cell({
   // the Timeline cell drops the red days-left countdown (no longer useful
   // once the work is finished) and shows the finish date instead.
   isDone?: boolean;
+  linkedRecords?: LinkedItemSummary[];
+  onAddLinkedRecord?: (targetItemId: string, targetTitle: string) => void;
+  onRemoveLinkedRecord?: (linkId: string) => void;
 }) {
   switch (cellValue.type) {
     case 'text':
@@ -86,5 +93,14 @@ export function Cell({
       return <FileCell count={attachmentCount} onOpenItem={onOpenItem} />;
     case 'progress':
       return <ProgressCell value={cellValue.value} onChange={(value) => onChange({ type: 'progress', value })} />;
+    case 'linked_record':
+      return (
+        <LinkedRecordCell
+          column={column}
+          records={linkedRecords}
+          onAdd={onAddLinkedRecord}
+          onRemove={onRemoveLinkedRecord}
+        />
+      );
   }
 }
