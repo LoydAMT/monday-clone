@@ -165,6 +165,69 @@ export async function createItems(groupId: string, titles: string[], startPositi
   return data;
 }
 
+export interface ItemUpdatePayload {
+  id: string;
+  title?: string;
+  groupId?: string;
+  cells: ItemCells;
+  // Column names (not ids) that actually changed — used only for the
+  // activity-log summary, so a no-op re-import doesn't need to log anything.
+  changedColumnNames: string[];
+}
+
+// Board-import update path — a full `items.update` per row (title/group_id
+// only included when the import actually changed them), consolidated into
+// one 'imported_update' activity entry per item instead of one per changed
+// column (an 8-column, 50-row import would otherwise flood the activity feed).
+export async function applyItemUpdates(updates: ItemUpdatePayload[]): Promise<void> {
+  if (updates.length === 0) return;
+
+  const results = await Promise.all(
+    updates.map(({ id, title, groupId, cells }) => {
+      const patch: { cells: ItemCells; title?: string; group_id?: string } = { cells };
+      if (title !== undefined) patch.title = title;
+      if (groupId !== undefined) patch.group_id = groupId;
+      return supabase.from('items').update(patch).eq('id', id);
+    })
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) throw failed.error;
+
+  for (const u of updates) {
+    if (u.changedColumnNames.length > 0) {
+      logActivity(u.id, 'imported_update', { changed_columns: u.changedColumnNames.join(', ') });
+    }
+  }
+}
+
+export interface ImportedItemInput {
+  group_id: string;
+  parent_item_id: string | null;
+  title: string;
+  cells: ItemCells;
+  position: number;
+}
+
+// Board-import create path — bulk insert (one round trip), carrying full
+// cells/parent_item_id per row, unlike the title-only createItems used by
+// the narrow per-group import.
+export async function bulkCreateImportedItems(rows: ImportedItemInput[]): Promise<Item[]> {
+  if (rows.length === 0) return [];
+
+  const { data, error } = await supabase.from('items').insert(rows).select();
+  if (error || !data) throw error;
+
+  for (const item of data) {
+    if (item.parent_item_id) {
+      logActivity(item.parent_item_id, 'subitem_added', { subitem_id: item.id, title: item.title });
+    } else {
+      logActivity(item.id, 'item_created');
+    }
+  }
+
+  return data;
+}
+
 export async function createNewGroup(boardId: string, position: number, name = 'New Group'): Promise<Group> {
   const colors = ['#579bfc', '#00c875', '#fdab3d', '#a25ddc', '#e2445c', '#66ccff'];
   const color = colors[Math.floor(Math.random() * colors.length)];

@@ -31,13 +31,18 @@ import { TrashPanel } from './TrashPanel';
 import { AutomationsPanel } from './AutomationsPanel';
 import { ShareLinksPanel } from './ShareLinksPanel';
 import { Toast, type ToastState } from './ui/Toast';
+import { ImportBoardDialog } from './ImportBoardDialog';
 import { applyFilters, applySearch, applySort } from '@/lib/filter-sort';
-import { boardToCsv, downloadTextFile, exportNodeAsPdf, exportNodeAsPng } from '@/lib/export';
+import { exportNodeAsPdf, exportNodeAsPng } from '@/lib/export';
 import { formatCellValue } from '@/lib/cell-format';
+import { buildBoardWorkbook, downloadWorkbook, type BoardImportResult } from '@/lib/excel';
 import { today } from '@/lib/gantt';
 import { createNotification } from '@/lib/notifications';
 import { addLinkedItem, removeLinkedItem } from '@/lib/linked-items';
+import { getAllSubitemsForBoard } from '@/lib/item-thread';
 import {
+  applyItemUpdates,
+  bulkCreateImportedItems,
   createItems,
   createNewColumn,
   createNewGroup,
@@ -54,6 +59,8 @@ import {
   updateColumnOptions,
   updateItemTitle,
   upsertCellData,
+  type ImportedItemInput,
+  type ItemUpdatePayload,
 } from '@/lib/mutations';
 
 export function BoardView({
@@ -110,6 +117,8 @@ export function BoardView({
     initialData.linkedRecordsByCell
   );
   const [exporting, setExporting] = useState(false);
+  const [boardImportFile, setBoardImportFile] = useState<File | null>(null);
+  const boardImportInputRef = useRef<HTMLInputElement>(null);
   const viewContainerRef = useRef<HTMLDivElement>(null);
   const tableScrollRef = useRef<HTMLDivElement>(null);
 
@@ -228,7 +237,7 @@ export function BoardView({
     };
   }, [board.id]);
 
-  function showToast(message: string, onUndo: () => void) {
+  function showToast(message: string, onUndo?: () => void) {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ message, onUndo });
     toastTimeoutRef.current = setTimeout(() => setToast(null), 6000);
@@ -570,12 +579,8 @@ export function BoardView({
 
   async function handleExport() {
     if (exporting) return;
-    const safeName = (board.name || 'board').replace(/[\\/:*?"<>|]/g, '-');
-    if (view === 'table') {
-      downloadTextFile(`${safeName}.csv`, boardToCsv(columns, groups, visibleItems, members), 'text/csv;charset=utf-8;');
-      return;
-    }
     if (!viewContainerRef.current) return;
+    const safeName = (board.name || 'board').replace(/[\\/:*?"<>|]/g, '-');
     // Kanban/Gantt each scroll horizontally inside their own nested div, not
     // viewContainerRef itself (which never overflows), so capturing
     // viewContainerRef directly only ever grabbed whatever was currently
@@ -594,6 +599,140 @@ export function BoardView({
     } finally {
       setExporting(false);
     }
+  }
+
+  // Full-fidelity board export (all groups/items/columns, including
+  // subitems) for offline editing in Excel — distinct from handleExport's
+  // screenshot-based kanban/gantt export above. Matches against full `items`
+  // state, not `visibleItems` — an offline round trip shouldn't silently
+  // drop rows hidden by the table's current filter/search/sort.
+  async function handleExportBoard() {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const groupIds = groups.map((g) => g.id);
+      const subitems = await getAllSubitemsForBoard(groupIds);
+      const workbook = await buildBoardWorkbook({
+        board,
+        columns,
+        groups,
+        items: items.filter((i) => i.parent_item_id === null),
+        subitems,
+        members,
+        attachmentCounts,
+        linkedRecordsByCell,
+      });
+      const safeName = (board.name || 'board').replace(/[\\/:*?"<>|]/g, '-');
+      await downloadWorkbook(workbook, `${safeName}.xlsx`);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleApplyBoardImport(result: BoardImportResult) {
+    if (!canEdit) return;
+    const previous = items;
+
+    // Append new rows after existing siblings in the same group+parent,
+    // same "next open position" logic as handleAddItem/handleImportItems.
+    const nextPosition = new Map<string, number>();
+    const positionKey = (groupId: string, parentId: string | null) => `${groupId}:${parentId ?? ''}`;
+    for (const item of items) {
+      const k = positionKey(item.group_id, item.parent_item_id);
+      nextPosition.set(k, Math.max(nextPosition.get(k) ?? 0, item.position + 1));
+    }
+
+    const tempItems: Item[] = result.creates.map((c) => {
+      const k = positionKey(c.groupId, c.parentItemId);
+      const position = nextPosition.get(k) ?? 0;
+      nextPosition.set(k, position + 1);
+      return {
+        id: `temp-${crypto.randomUUID()}`,
+        group_id: c.groupId,
+        parent_item_id: c.parentItemId,
+        title: c.title,
+        cells: c.cells,
+        position,
+        deleted_at: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    setItems((prev) => [
+      ...prev.map((item) => {
+        const update = result.updates.find((u) => u.itemId === item.id);
+        if (!update) return item;
+        return {
+          ...item,
+          title: update.title ?? item.title,
+          group_id: update.groupId ?? item.group_id,
+          cells: { ...item.cells, ...update.cellPatch },
+        };
+      }),
+      ...tempItems,
+    ]);
+
+    const updatePayloads: ItemUpdatePayload[] = result.updates
+      .map((u) => {
+        const target = previous.find((i) => i.id === u.itemId);
+        const changedColumnNames = Object.keys(u.cellPatch)
+          .filter((columnId) => JSON.stringify(target?.cells[columnId]) !== JSON.stringify(u.cellPatch[columnId]))
+          .map((columnId) => columns.find((c) => c.id === columnId)?.name ?? columnId);
+        return {
+          id: u.itemId,
+          title: u.title,
+          groupId: u.groupId,
+          cells: { ...(target?.cells ?? {}), ...u.cellPatch },
+          changedColumnNames,
+        };
+      })
+      .filter((p) => p.title !== undefined || p.groupId !== undefined || p.changedColumnNames.length > 0);
+
+    const createPayloads: ImportedItemInput[] = result.creates.map((c, i) => ({
+      group_id: c.groupId,
+      parent_item_id: c.parentItemId,
+      title: c.title,
+      cells: c.cells,
+      position: tempItems[i].position,
+    }));
+
+    const [updateResult, createResult] = await Promise.allSettled([
+      applyItemUpdates(updatePayloads),
+      bulkCreateImportedItems(createPayloads),
+    ]);
+
+    if (createResult.status === 'fulfilled') {
+      const created = createResult.value;
+      setItems((prev) => {
+        const withoutTemps = prev.filter((i) => !tempItems.some((t) => t.id === i.id));
+        return [...withoutTemps, ...created];
+      });
+    } else {
+      setItems((prev) => prev.filter((i) => !tempItems.some((t) => t.id === i.id)));
+    }
+
+    if (updateResult.status === 'rejected') {
+      const revertIds = new Set(updatePayloads.map((p) => p.id));
+      setItems((prev) => prev.map((item) => (revertIds.has(item.id) ? (previous.find((i) => i.id === item.id) ?? item) : item)));
+    }
+
+    const messages: string[] = [];
+    if (updatePayloads.length > 0) {
+      messages.push(
+        updateResult.status === 'fulfilled'
+          ? `${updatePayloads.length} item${updatePayloads.length === 1 ? '' : 's'} updated`
+          : 'Updates failed to save'
+      );
+    }
+    if (createPayloads.length > 0) {
+      messages.push(
+        createResult.status === 'fulfilled'
+          ? `${createPayloads.length} item${createPayloads.length === 1 ? '' : 's'} created`
+          : 'New items failed to save'
+      );
+    }
+    showToast(messages.length > 0 ? messages.join(' · ') : 'Import applied');
   }
 
   const openItem = items.find((i) => i.id === openItemId) ?? null;
@@ -619,6 +758,8 @@ export function BoardView({
           onToggleEmailNotifications={handleToggleEmailNotifications}
           onOpenShare={() => setShareOpen(true)}
           onExport={handleExport}
+          onExportBoard={handleExportBoard}
+          onImportBoard={() => boardImportInputRef.current?.click()}
           exporting={exporting}
           canEdit={canEdit}
           presenceUsers={presenceUsers}
@@ -770,6 +911,30 @@ export function BoardView({
             setShareLinks((prev) => prev.map((l) => (l.id === id ? { ...l, revoked_at: new Date().toISOString() } : l)))
           }
           canEdit={canEdit}
+        />
+      )}
+
+      <input
+        ref={boardImportInputRef}
+        type="file"
+        accept=".xlsx"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) setBoardImportFile(file);
+          e.target.value = '';
+        }}
+      />
+
+      {boardImportFile && (
+        <ImportBoardDialog
+          file={boardImportFile}
+          columns={columns}
+          groups={groups}
+          items={items}
+          members={members}
+          onConfirm={handleApplyBoardImport}
+          onClose={() => setBoardImportFile(null)}
         />
       )}
 

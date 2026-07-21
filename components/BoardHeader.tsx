@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Download, Eye, GanttChartSquare, Link2, Mail, Plus, Table2, LayoutGrid as KanbanIcon, Trash2, Zap } from 'lucide-react';
+import { Download, Eye, GanttChartSquare, Link2, Mail, Plus, Table2, LayoutGrid as KanbanIcon, Trash2, Upload, Zap } from 'lucide-react';
 import type { Board } from '@/types/database';
 import type { PresenceUser } from '@/lib/use-board-presence';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
@@ -20,6 +20,8 @@ export function BoardHeader({
   onToggleEmailNotifications,
   onOpenShare,
   onExport,
+  onExportBoard,
+  onImportBoard,
   exporting = false,
   canEdit = true,
   presenceUsers = [],
@@ -35,6 +37,10 @@ export function BoardHeader({
   onToggleEmailNotifications: (enabled: boolean) => void;
   onOpenShare: () => void;
   onExport?: () => void;
+  // Table view gets its own full-fidelity Excel export/import instead of
+  // the CSV/PNG export the other views use (onExport, kept for kanban/gantt).
+  onExportBoard?: () => void;
+  onImportBoard?: () => void;
   exporting?: boolean;
   canEdit?: boolean;
   presenceUsers?: PresenceUser[];
@@ -90,15 +96,39 @@ export function BoardHeader({
               )}
             </div>
           )}
-          {onExport && (
-            <button
-              onClick={onExport}
-              disabled={exporting}
-              title={view === 'table' ? 'Export as CSV' : view === 'gantt' ? 'Export as PDF' : 'Export as image'}
-              className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
-            >
-              <Download size={15} />
-            </button>
+          {view === 'table' ? (
+            <>
+              {onExportBoard && (
+                <button
+                  onClick={onExportBoard}
+                  disabled={exporting}
+                  title="Export to Excel"
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+                >
+                  <Download size={15} />
+                </button>
+              )}
+              {onImportBoard && canEdit && (
+                <button
+                  onClick={onImportBoard}
+                  title="Import from Excel"
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <Upload size={15} />
+                </button>
+              )}
+            </>
+          ) : (
+            onExport && (
+              <button
+                onClick={onExport}
+                disabled={exporting}
+                title={view === 'gantt' ? 'Export as PDF' : 'Export as image'}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+              >
+                <Download size={15} />
+              </button>
+            )
           )}
           <button
             onClick={onOpenAutomations}

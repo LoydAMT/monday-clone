@@ -34,6 +34,8 @@ function describeActivity(activity: ActivityLog, groups: Group[]): string {
       return `attached "${meta.file_name}"`;
     case 'attachment_removed':
       return `removed attachment "${meta.file_name}"`;
+    case 'imported_update':
+      return `updated ${meta.changed_columns} via Excel import`;
     default:
       return activity.action;
   }

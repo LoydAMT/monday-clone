@@ -73,3 +73,21 @@ export async function getSubitems(parentItemId: string): Promise<Item[]> {
   if (error) throw error;
   return data ?? [];
 }
+
+// Every subitem across a board, in one round trip — used by the full-board
+// Excel export/import, which needs to round-trip subitem data too (unlike
+// getBoardContents, which deliberately excludes subitems from the main
+// table view). Items have no board_id of their own, so this is scoped by
+// group_id instead, same as getBoardContents itself does for top-level items.
+export async function getAllSubitemsForBoard(groupIds: string[]): Promise<Item[]> {
+  if (groupIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from('items')
+    .select('*')
+    .in('group_id', groupIds)
+    .not('parent_item_id', 'is', null)
+    .is('deleted_at', null)
+    .order('position', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
