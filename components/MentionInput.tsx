@@ -1,8 +1,21 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { Users } from 'lucide-react';
 import type { MemberProfile } from '@/types/database';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
+import { EVERYONE_USER_ID } from '@/lib/mentions';
+
+// Not a real member — a synthetic option so "@everyone" can be selected the
+// same way a person can. displayName()/initials() both key off full_name, so
+// giving it one here means selectMember/applyMentionTokens need no special
+// casing to produce the `@[everyone](everyone)` storage token.
+const EVERYONE_OPTION: MemberProfile = {
+  user_id: EVERYONE_USER_ID,
+  email: '',
+  full_name: 'everyone',
+  role: 'member',
+};
 
 export function MentionInput({
   value,
@@ -40,7 +53,9 @@ export function MentionInput({
   const matches = useMemo(() => {
     if (query === null) return [];
     const q = query.toLowerCase();
-    return members.filter((m) => displayName(m).toLowerCase().includes(q)).slice(0, 6);
+    const showEveryone = 'everyone'.startsWith(q);
+    const memberMatches = members.filter((m) => displayName(m).toLowerCase().includes(q)).slice(0, showEveryone ? 5 : 6);
+    return showEveryone ? [EVERYONE_OPTION, ...memberMatches] : memberMatches;
   }, [query, members]);
 
   function updateMentionQuery(text: string, caret: number) {
@@ -115,27 +130,39 @@ export function MentionInput({
       />
       {query !== null && matches.length > 0 && (
         <div className="absolute left-0 top-full z-30 mt-1 w-56 rounded-md border border-gray-200 bg-white p-1 shadow-lg">
-          {matches.map((m, i) => (
-            <button
-              type="button"
-              key={m.user_id}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                selectMember(m);
-              }}
-              className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
-                i === highlighted ? 'bg-gray-100' : 'hover:bg-gray-50'
-              }`}
-            >
-              <span
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                style={{ backgroundColor: avatarColor(m.user_id) }}
+          {matches.map((m, i) => {
+            const isEveryone = m.user_id === EVERYONE_USER_ID;
+            return (
+              <button
+                type="button"
+                key={m.user_id}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  selectMember(m);
+                }}
+                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
+                  i === highlighted ? 'bg-gray-100' : 'hover:bg-gray-50'
+                }`}
               >
-                {initials(m)}
-              </span>
-              <span className="truncate text-gray-700">{displayName(m)}</span>
-            </button>
-          ))}
+                {isEveryone ? (
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0073ea] text-white">
+                    <Users size={11} />
+                  </span>
+                ) : (
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold text-white"
+                    style={{ backgroundColor: avatarColor(m.user_id) }}
+                  >
+                    {initials(m)}
+                  </span>
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-gray-700">{displayName(m)}</span>
+                  {isEveryone && <span className="block truncate text-[10px] text-gray-400">Notify everyone on this board</span>}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

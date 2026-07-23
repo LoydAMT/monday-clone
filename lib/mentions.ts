@@ -4,6 +4,12 @@
 // correctly even if that person later renames themselves or leaves.
 const MENTION_REGEX = /@\[([^\]]+)\]\(([^)]+)\)/g;
 
+// Reserved sentinel id for "@everyone" — not a real user_id, so it can't
+// collide with one. Stored as a normal mention token (`@[everyone](everyone)`)
+// and only expanded into the board's actual member ids right before
+// notifications go out — see expandEveryoneMention.
+export const EVERYONE_USER_ID = 'everyone';
+
 export type MentionSegment = { type: 'text'; value: string } | { type: 'mention'; name: string; userId: string };
 
 export function parseMentionSegments(text: string): MentionSegment[] {
@@ -21,6 +27,16 @@ export function parseMentionSegments(text: string): MentionSegment[] {
 
 export function extractMentionedUserIds(text: string): string[] {
   return [...new Set([...text.matchAll(MENTION_REGEX)].map((m) => m[2]))];
+}
+
+// Swaps the "@everyone" sentinel out for every member's real user_id, so the
+// notification loop in lib/item-thread.ts doesn't need to know "everyone" is
+// special — it just sees a normal list of userIds to notify.
+export function expandEveryoneMention(userIds: string[], members: { user_id: string }[]): string[] {
+  if (!userIds.includes(EVERYONE_USER_ID)) return userIds;
+  const expanded = new Set(userIds.filter((id) => id !== EVERYONE_USER_ID));
+  for (const m of members) expanded.add(m.user_id);
+  return [...expanded];
 }
 
 // For plain-text previews (e.g. notification list rows) that can't render

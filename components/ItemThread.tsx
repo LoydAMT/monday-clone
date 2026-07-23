@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react';
 import type { ActivityLog, Group, MemberProfile } from '@/types/database';
 import { addComment, deleteComment, getItemThread, type ThreadEntry } from '@/lib/item-thread';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
-import { applyMentionTokens, extractMentionedUserIds, type DraftMention } from '@/lib/mentions';
+import { applyMentionTokens, expandEveryoneMention, extractMentionedUserIds, type DraftMention } from '@/lib/mentions';
 import { MentionInput } from './MentionInput';
 import { MentionText } from './MentionText';
 
@@ -100,7 +100,7 @@ export function ItemThread({
     setDraft('');
     const body = applyMentionTokens(plain, draftMentions);
     setDraftMentions([]);
-    const mentionedUserIds = extractMentionedUserIds(body);
+    const mentionedUserIds = expandEveryoneMention(extractMentionedUserIds(body), members);
     addComment(itemId, body, notifyUserIds, workspaceId, boardId, mentionedUserIds).then((comment) =>
       setEntries((prev) => [...prev, { kind: 'comment', created_at: comment.created_at, comment }])
     );
