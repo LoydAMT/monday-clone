@@ -17,6 +17,15 @@ export async function ensureSeedData(supabase: SupabaseClient, userId: string) {
     .single();
   if (workspaceError || !workspace) return;
 
+  // Every RLS select policy on workspaces/boards/etc. is gated on
+  // workspace_members (see is_workspace_member in 0003_collaboration.sql),
+  // not on workspaces.user_id — without this row the creator can insert the
+  // workspace but can never read it back.
+  const { error: memberError } = await supabase
+    .from('workspace_members')
+    .insert({ workspace_id: workspace.id, user_id: userId, role: 'owner' });
+  if (memberError) return;
+
   const { data: board, error: boardError } = await supabase
     .from('boards')
     .insert({
