@@ -7,7 +7,7 @@ workflows:
     # Codemagic's Mac images ship with the Android SDK preinstalled.
     instance_type: mac_mini_m2
     environment:
-      node: 20
+      node: 22
       groups:
         # Create this group in Codemagic > Teams > Environment variables.
         # Needed only once you're ready to publish to Play Console:
@@ -45,7 +45,7 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
-      node: 20
+      node: 22
       xcode: latest
       cocoapods: default
       groups:
