@@ -18,7 +18,7 @@ export interface WorkspaceWithBoards extends Workspace {
 // workspace_members and profiles both reference auth.users independently (no
 // FK between them), so this joins them client-side instead of via a nested
 // PostgREST select — same two-query-then-stitch pattern used for boards below.
-async function stitchMemberProfiles(
+export async function stitchMemberProfiles(
   supabase: Awaited<ReturnType<typeof createClient>>,
   memberRows: { workspace_id: string; user_id: string; role: MemberProfile['role'] }[]
 ): Promise<MemberProfile[]> {

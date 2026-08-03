@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Copy, LayoutGrid, Menu, MoreHorizontal, Plus, LogOut, Trash2, X } from 'lucide-react';
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { ChevronDown, ChevronRight, Copy, LayoutGrid, Menu, MoreHorizontal, Package, Plus, LogOut, Trash2, X } from 'lucide-react';
 import type { MemberProfile, WorkspaceRole } from '@/types/database';
 import type { WorkspaceWithBoards } from '@/lib/queries';
 import {
@@ -29,6 +29,7 @@ export function Sidebar({
 }) {
   const router = useRouter();
   const params = useParams<{ boardId?: string }>();
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [isPending, startTransition] = useTransition();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -132,6 +133,19 @@ export function Sidebar({
 
                 {!isCollapsed && (
                   <div className="mt-0.5 space-y-0.5 pl-3">
+                    <Link
+                      href={`/inventory/${workspace.id}`}
+                      onClick={() => setMobileOpen(false)}
+                      className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
+                        pathname === `/inventory/${workspace.id}`
+                          ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
+                          : 'text-gray-700 hover:bg-gray-200/60'
+                      }`}
+                    >
+                      <Package size={14} />
+                      Inventory
+                    </Link>
+
                     {workspace.boards.map((board) => {
                       const active = params?.boardId === board.id;
                       return (

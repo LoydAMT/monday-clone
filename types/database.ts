@@ -129,6 +129,68 @@ export interface Attachment {
   created_at: string;
 }
 
+// ============================================================================
+// Inventory management — a standalone module (its own tables/routes/UI), not
+// part of the board/column/item grid above.
+// ============================================================================
+
+export interface InventoryLocation {
+  id: string;
+  workspace_id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  workspace_id: string;
+  name: string;
+  sku: string | null;
+  category: string | null;
+  description: string | null;
+  unit_cost: number | null;
+  reorder_point: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryStock {
+  id: string;
+  item_id: string;
+  location_id: string;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryStockMovement {
+  id: string;
+  item_id: string;
+  location_id: string | null;
+  location_name: string;
+  change: number;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface InventoryPhoto {
+  id: string;
+  item_id: string;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  content_type: string | null;
+  uploaded_by: string;
+  created_at: string;
+}
+
+export interface InventoryStockSummary {
+  total: number;
+  byLocation: { locationId: string; locationName: string; quantity: number }[];
+}
+
 export interface Comment {
   id: string;
   item_id: string;
