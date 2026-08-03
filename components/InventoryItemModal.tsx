@@ -245,7 +245,7 @@ export function InventoryItemModal({
         />
 
         <div className="mb-5 grid grid-cols-2 gap-3">
-          <Field label="SKU">
+          <Field label="SKU / Order Code">
             <input
               value={sku}
               onChange={(e) => setSku(e.target.value)}

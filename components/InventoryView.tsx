@@ -115,7 +115,7 @@ export function InventoryView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name or SKU"
+            placeholder="Search name or SKU / Order Code"
             className="w-full rounded-md border border-gray-200 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#0073ea]"
           />
         </div>
