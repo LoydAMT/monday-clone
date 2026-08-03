@@ -8,6 +8,7 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       node: 22
+      java: 21
       groups:
         # Create this group in Codemagic > Teams > Environment variables.
         # Needed only once you're ready to publish to Play Console:
