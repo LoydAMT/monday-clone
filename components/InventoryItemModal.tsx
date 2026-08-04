@@ -31,6 +31,8 @@ interface DraftRow {
   quantity: string;
 }
 
+const COMMON_UNITS = ['pcs', 'box', 'set', 'pack', 'roll', 'meters', 'kg', 'liters'];
+
 function newDraftRow(): DraftRow {
   return { key: crypto.randomUUID(), locationId: null, locationName: '', quantity: '' };
 }
@@ -71,6 +73,7 @@ export function InventoryItemModal({
   const [sku, setSku] = useState(item?.sku ?? '');
   const [category, setCategory] = useState(item?.category ?? '');
   const [description, setDescription] = useState(item?.description ?? '');
+  const [unit, setUnit] = useState(item?.unit ?? 'pcs');
   const [unitCost, setUnitCost] = useState(item?.unit_cost != null ? String(item.unit_cost) : '');
   const [reorderPoint, setReorderPoint] = useState(item ? String(item.reorder_point) : '0');
   const [draftRows, setDraftRows] = useState<DraftRow[]>(item ? [] : [newDraftRow()]);
@@ -181,6 +184,7 @@ export function InventoryItemModal({
         sku: sku.trim() || null,
         category: category.trim() || null,
         description: description.trim() || null,
+        unit: unit.trim() || 'pcs',
         unit_cost: unitCost.trim() ? Number(unitCost) : null,
         reorder_point: reorderPoint.trim() ? Number(reorderPoint) : 0,
       };
@@ -261,6 +265,21 @@ export function InventoryItemModal({
               className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-[#0073ea]"
             />
           </Field>
+          <Field label="Unit">
+            <input
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              readOnly={readOnly}
+              list="inventory-unit-options"
+              placeholder="pcs"
+              className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-[#0073ea]"
+            />
+            <datalist id="inventory-unit-options">
+              {COMMON_UNITS.map((u) => (
+                <option key={u} value={u} />
+              ))}
+            </datalist>
+          </Field>
           <Field label="Unit cost">
             <input
               type="number"
@@ -296,14 +315,18 @@ export function InventoryItemModal({
         </div>
 
         <div className="mb-5">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Locations &amp; Quantity</h3>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Locations &amp; Quantity ({unit.trim() || 'pcs'})
+          </h3>
           <div className="space-y-2">
             {stock.map((row) => {
               const location = locationList.find((l) => l.id === row.location_id);
               return (
                 <div key={row.id} className="flex items-center gap-2">
                   <span className="w-28 shrink-0 truncate text-sm text-gray-700">{location?.name ?? 'Unknown'}</span>
-                  <span className="w-10 shrink-0 text-right text-sm font-medium text-gray-900">{row.quantity}</span>
+                  <span className="w-14 shrink-0 text-right text-sm font-medium text-gray-900">
+                    {row.quantity} {unit.trim() || 'pcs'}
+                  </span>
                   {canEdit && savedItem && (
                     <StockAdjuster
                       itemId={savedItem.id}

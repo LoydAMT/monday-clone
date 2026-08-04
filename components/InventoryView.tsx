@@ -33,6 +33,7 @@ export function InventoryView({
 
   const [search, setSearch] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [lowStockOnly, setLowStockOnly] = useState(false);
   // undefined = closed, null = create mode, an item = edit mode.
   const [activeItem, setActiveItem] = useState<InventoryItem | null | undefined>(undefined);
@@ -40,13 +41,28 @@ export function InventoryView({
   const canEdit = members.find((m) => m.user_id === currentUserId)?.role !== 'viewer';
   const stockByItem = useMemo(() => summarizeInventoryStock(stock, locations), [stock, locations]);
 
+  const categories = useMemo(
+    () =>
+      Array.from(new Set(items.map((item) => item.category).filter((c): c is string => !!c))).sort((a, b) =>
+        a.localeCompare(b)
+      ),
+    [items]
+  );
+
   const filteredItems = items.filter((item) => {
     const query = search.trim().toLowerCase();
-    if (query && !item.name.toLowerCase().includes(query) && !item.sku?.toLowerCase().includes(query)) return false;
+    if (
+      query &&
+      !item.name.toLowerCase().includes(query) &&
+      !item.sku?.toLowerCase().includes(query) &&
+      !item.category?.toLowerCase().includes(query)
+    )
+      return false;
     if (locationFilter !== 'all') {
       const hasLocation = (stockByItem[item.id]?.byLocation ?? []).some((l) => l.locationId === locationFilter);
       if (!hasLocation) return false;
     }
+    if (categoryFilter !== 'all' && item.category !== categoryFilter) return false;
     if (lowStockOnly) {
       const total = stockByItem[item.id]?.total ?? 0;
       if (total > item.reorder_point) return false;
@@ -115,7 +131,7 @@ export function InventoryView({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name or SKU / Order Code"
+            placeholder="Search name, SKU / Order Code, or category"
             className="w-full rounded-md border border-gray-200 py-1.5 pl-7 pr-2 text-xs outline-none focus:border-[#0073ea]"
           />
         </div>
@@ -128,6 +144,18 @@ export function InventoryView({
           {locations.map((l) => (
             <option key={l.id} value={l.id}>
               {l.name}
+            </option>
+          ))}
+        </select>
+        <select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          className="rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-[#0073ea]"
+        >
+          <option value="all">All categories</option>
+          {categories.map((c) => (
+            <option key={c} value={c}>
+              {c}
             </option>
           ))}
         </select>

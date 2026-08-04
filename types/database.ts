@@ -148,6 +148,7 @@ export interface InventoryItem {
   sku: string | null;
   category: string | null;
   description: string | null;
+  unit: string;
   unit_cost: number | null;
   reorder_point: number;
   created_by: string | null;

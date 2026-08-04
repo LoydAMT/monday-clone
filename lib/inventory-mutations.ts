@@ -17,6 +17,7 @@ export async function createInventoryItem(
     sku: string | null;
     category: string | null;
     description: string | null;
+    unit: string;
     unit_cost: number | null;
     reorder_point: number;
     locations: InventoryLocationInput[];
@@ -32,6 +33,7 @@ export async function createInventoryItem(
       sku: input.sku,
       category: input.category,
       description: input.description,
+      unit: input.unit,
       unit_cost: input.unit_cost,
       reorder_point: input.reorder_point,
       created_by: auth.user?.id ?? null,
@@ -72,7 +74,7 @@ export async function createInventoryItem(
 export async function updateInventoryItem(
   itemId: string,
   patch: Partial<
-    Pick<InventoryItem, 'name' | 'sku' | 'category' | 'description' | 'unit_cost' | 'reorder_point'>
+    Pick<InventoryItem, 'name' | 'sku' | 'category' | 'description' | 'unit' | 'unit_cost' | 'reorder_point'>
   >
 ): Promise<void> {
   const { error } = await supabase.from('inventory_items').update(patch).eq('id', itemId);

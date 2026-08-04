@@ -61,7 +61,9 @@ export function InventoryTable({
               </td>
               <td className="px-2 py-2 text-gray-600">{item.category || '—'}</td>
               <td className="px-2 py-2 text-right">
-                <span className="font-medium text-gray-900">{total.toLocaleString()}</span>
+                <span className="font-medium text-gray-900">
+                  {total.toLocaleString()} {item.unit}
+                </span>
                 {lowStock && (
                   <span className="ml-2 rounded px-1.5 py-0.5 text-[11px] font-medium text-white" style={{ backgroundColor: '#e2445c' }}>
                     Low stock
