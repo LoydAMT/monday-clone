@@ -9,6 +9,7 @@ import {
   getInventoryPhotos,
   uploadInventoryPhoto,
 } from '@/lib/inventory-photos';
+import { Lightbox } from './ui/Lightbox';
 
 export function InventoryPhotosPanel({
   itemId,
@@ -25,6 +26,7 @@ export function InventoryPhotosPanel({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -89,9 +91,15 @@ export function InventoryPhotosPanel({
   function handleDelete(photo: InventoryPhoto) {
     setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
     deleteInventoryPhoto(photo);
+    setExpandedIndex(null);
   }
 
   if (loading) return <p className="text-xs text-gray-400">Loading photos…</p>;
+
+  // Only photos whose signed URL has resolved can be shown in the lightbox —
+  // index into this list, not the raw `photos` array, so a still-loading
+  // photo earlier in the grid can't shift later photos out of alignment.
+  const resolvedPhotos = photos.filter((p) => urls[p.id]);
 
   return (
     <div className="space-y-2">
@@ -100,8 +108,15 @@ export function InventoryPhotosPanel({
           {photos.map((photo) => (
             <div key={photo.id} className="group relative aspect-square overflow-hidden rounded border border-gray-200 bg-gray-50">
               {urls[photo.id] ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={urls[photo.id]} alt={photo.file_name} className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setExpandedIndex(resolvedPhotos.findIndex((p) => p.id === photo.id))}
+                  title="View photo"
+                  className="block h-full w-full cursor-zoom-in"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={urls[photo.id]} alt={photo.file_name} className="h-full w-full object-cover" />
+                </button>
               ) : (
                 <div className="h-full w-full animate-pulse bg-gray-100" />
               )}
@@ -153,6 +168,15 @@ export function InventoryPhotosPanel({
       </div>
 
       {error && <p className="text-[11px] text-red-500">{error}</p>}
+
+      {expandedIndex !== null && (
+        <Lightbox
+          images={resolvedPhotos.map((p) => ({ url: urls[p.id], alt: p.file_name }))}
+          index={expandedIndex}
+          onClose={() => setExpandedIndex(null)}
+          onNavigate={setExpandedIndex}
+        />
+      )}
     </div>
   );
 }

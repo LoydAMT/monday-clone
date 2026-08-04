@@ -192,6 +192,23 @@ export interface InventoryStockSummary {
   byLocation: { locationId: string; locationName: string; quantity: number }[];
 }
 
+// Mirrors public.attendance_records, which is shared with the mobile app —
+// see supabase/migrations/0018_attendance.sql.
+export interface AttendanceRecord {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  work_date: string;
+  time_in: string;
+  time_in_original: string;
+  time_in_manual: boolean;
+  time_out: string | null;
+  time_out_original: string | null;
+  time_out_manual: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Comment {
   id: string;
   item_id: string;
