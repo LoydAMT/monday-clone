@@ -1,7 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
-import { getAttendanceRecords, getAttendanceWorkspace, getAttendanceWorkspaceMembers } from '@/lib/attendance-queries';
-import { monthRange, todayLocalDateString } from '@/lib/attendance-time';
+import { getAttendanceWorkspace, getAttendanceWorkspaceMembers, getMyAttendanceHistory, getTodayAttendance } from '@/lib/attendance-queries';
 import { AttendanceView } from '@/components/AttendanceView';
 
 export default async function AttendancePage({ params }: { params: Promise<{ workspaceId: string }> }) {
@@ -16,8 +15,11 @@ export default async function AttendancePage({ params }: { params: Promise<{ wor
   if (!session) redirect('/login');
   if (!workspace) notFound();
 
-  const { start, end } = monthRange(todayLocalDateString());
-  const records = await getAttendanceRecords(supabase, workspaceId, start, end);
+  // Needs the session's user id resolved above, so it can't join the batch.
+  const [today, history] = await Promise.all([
+    getTodayAttendance(supabase, workspaceId, session.user.id),
+    getMyAttendanceHistory(supabase, workspaceId, session.user.id),
+  ]);
 
   return (
     <AttendanceView
@@ -25,8 +27,8 @@ export default async function AttendancePage({ params }: { params: Promise<{ wor
       workspaceName={workspace.name}
       members={members}
       currentUserId={session.user.id}
-      initialRecords={records}
-      initialMonth={start}
+      initialToday={today}
+      initialHistory={history}
     />
   );
 }

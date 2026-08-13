@@ -9,23 +9,15 @@ export default function AttendanceLoading() {
         </div>
       </div>
 
-      <div className="border-b border-gray-200 bg-white px-6 py-4">
-        <div className="h-12 w-full animate-pulse rounded-md bg-gray-100" />
-      </div>
-
-      <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-6 py-2.5">
-        <div className="h-7 w-24 animate-pulse rounded-md bg-gray-100" />
-        <div className="h-7 w-32 animate-pulse rounded-md bg-gray-100" />
-      </div>
-
       <div className="flex-1 overflow-hidden px-6 py-4">
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-10 animate-pulse rounded bg-gray-50"
-              style={{ animationDelay: `${i * 60}ms` }}
-            />
+        <div className="mb-5 max-w-md space-y-2 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="h-3 w-16 animate-pulse rounded bg-gray-100" />
+          <div className="h-10 w-full animate-pulse rounded-md bg-gray-100" />
+        </div>
+
+        <div className="max-w-md space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-10 animate-pulse rounded bg-gray-50" style={{ animationDelay: `${i * 60}ms` }} />
           ))}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { stitchMemberProfiles } from '@/lib/queries';
+import { localDateString } from '@/lib/attendance-time';
 import type { AttendanceRecord, MemberProfile, Workspace } from '@/types/database';
 
 export async function getAttendanceWorkspace(
@@ -23,23 +24,57 @@ export async function getAttendanceWorkspaceMembers(
   return stitchMemberProfiles(supabase, memberRows);
 }
 
-// Bounded to [monthStart, monthEnd] (inclusive, 'YYYY-MM-DD') rather than the
-// whole table — RLS already narrows rows to "mine" for members / "everyone's"
-// for owners, but a punch-clock log still grows one row per person per day
-// forever, so the page always asks for one month at a time.
-export async function getAttendanceRecords(
+// Mirrors mobile's getTodayAttendance/getMyAttendanceHistory in
+// src/lib/attendance.ts exactly (same table, same "today" and "last 14"
+// definitions) so the server-rendered initial state matches what the client
+// mutations below produce.
+export async function getTodayAttendance(
   supabase: Awaited<ReturnType<typeof createClient>>,
   workspaceId: string,
-  monthStart: string,
-  monthEnd: string
+  userId: string
+): Promise<AttendanceRecord | null> {
+  const workDate = localDateString(new Date());
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId)
+    .eq('work_date', workDate)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function getMyAttendanceHistory(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  workspaceId: string,
+  userId: string,
+  limit = 14
 ): Promise<AttendanceRecord[]> {
   const { data, error } = await supabase
     .from('attendance_records')
     .select('*')
     .eq('workspace_id', workspaceId)
-    .gte('work_date', monthStart)
-    .lte('work_date', monthEnd)
-    .order('work_date', { ascending: false });
+    .eq('user_id', userId)
+    .order('work_date', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Owner-only "Team" view's initial load — one day, every member's record
+// (or lack of one). Mirrors mobile's getWorkspaceAttendanceForDate, minus
+// the member fetch since the page already has `members` from the call above.
+export async function getAttendanceForWorkDate(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  workspaceId: string,
+  workDate: string
+): Promise<AttendanceRecord[]> {
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .eq('work_date', workDate);
   if (error) throw error;
   return data ?? [];
 }

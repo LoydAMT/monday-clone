@@ -4,89 +4,124 @@ import { localDateString } from '@/lib/attendance-time';
 
 const supabase = createClient();
 
-// The 2-hour / 8-hour bounds mirrored here are also enforced by check
-// constraints on attendance_records — this is just a friendlier message than
-// the raw Postgres error for the common case of typing a wildly wrong time.
-function friendlyError(e: unknown, fallback: string): Error {
-  const message = e instanceof Error ? e.message : '';
-  if (message.includes('time_in_within_2h') || message.includes('time_out_within_2h')) {
-    return new Error('Time can only be adjusted within 2 hours of the original clock time.');
-  }
-  if (message.includes('manual_entry_max_8h')) {
-    return new Error('A fully manual entry (no real punch) can be at most 8 hours.');
-  }
-  if (message.includes('time_out_after_time_in')) {
-    return new Error('Clock-out time must be after the clock-in time.');
-  }
-  return new Error(fallback);
-}
+// Mirrors instrubyte-crm-mobile's src/lib/attendance.ts — same validation,
+// same field semantics — so a record edited here behaves identically if
+// later viewed/edited from the mobile app, and vice versa.
+export const MAX_ADJUSTMENT_HOURS = 2;
+export const MAX_MANUAL_SHIFT_HOURS = 8;
 
-export async function clockIn(workspaceId: string): Promise<AttendanceRecord> {
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) throw new Error('Not signed in');
-
-  const now = new Date();
+export async function timeIn(
+  workspaceId: string,
+  userId: string,
+  time: Date,
+  manual: boolean
+): Promise<AttendanceRecord> {
+  const workDate = localDateString(new Date());
+  const iso = time.toISOString();
   const { data, error } = await supabase
     .from('attendance_records')
     .insert({
       workspace_id: workspaceId,
-      user_id: auth.user.id,
-      work_date: localDateString(now),
-      time_in: now.toISOString(),
-      time_in_original: now.toISOString(),
+      user_id: userId,
+      work_date: workDate,
+      time_in: iso,
+      time_in_original: iso,
+      time_in_manual: manual,
     })
     .select()
     .single();
-  if (error || !data) throw friendlyError(error, 'Failed to clock in');
+  if (error || !data) throw error;
   return data;
 }
 
-export async function clockOut(recordId: string): Promise<AttendanceRecord> {
-  const now = new Date().toISOString();
+export async function timeOut(record: AttendanceRecord, time: Date, manual: boolean): Promise<AttendanceRecord> {
+  if (time.getTime() <= new Date(record.time_in).getTime()) {
+    throw new Error('Time out must be after time in.');
+  }
+  if (record.time_in_manual && manual) {
+    const hours = (time.getTime() - new Date(record.time_in).getTime()) / 3_600_000;
+    if (hours > MAX_MANUAL_SHIFT_HOURS) {
+      throw new Error(`A fully manual entry can't be longer than ${MAX_MANUAL_SHIFT_HOURS} hours.`);
+    }
+  }
+
+  const iso = time.toISOString();
   const { data, error } = await supabase
     .from('attendance_records')
-    .update({ time_out: now, time_out_original: now })
-    .eq('id', recordId)
+    .update({ time_out: iso, time_out_original: iso, time_out_manual: manual })
+    .eq('id', record.id)
     .select()
     .single();
-  if (error || !data) throw friendlyError(error, 'Failed to clock out');
+  if (error || !data) throw error;
   return data;
 }
 
-export async function updateTimeIn(recordId: string, isoTime: string): Promise<AttendanceRecord> {
+function assertWithinAdjustmentWindow(original: string, next: Date) {
+  const hours = Math.abs(next.getTime() - new Date(original).getTime()) / 3_600_000;
+  if (hours > MAX_ADJUSTMENT_HOURS) {
+    throw new Error(`You can only adjust this by up to ${MAX_ADJUSTMENT_HOURS} hours from the original time.`);
+  }
+}
+
+export async function adjustTimeIn(record: AttendanceRecord, time: Date): Promise<AttendanceRecord> {
+  assertWithinAdjustmentWindow(record.time_in_original, time);
+  if (record.time_out && time.getTime() >= new Date(record.time_out).getTime()) {
+    throw new Error('Time in must be before time out.');
+  }
   const { data, error } = await supabase
     .from('attendance_records')
-    .update({ time_in: isoTime, time_in_manual: true })
-    .eq('id', recordId)
+    .update({ time_in: time.toISOString() })
+    .eq('id', record.id)
     .select()
     .single();
-  if (error || !data) throw friendlyError(error, 'Failed to update clock-in time');
+  if (error || !data) throw error;
   return data;
 }
 
-export async function updateTimeOut(recordId: string, isoTime: string): Promise<AttendanceRecord> {
+export async function adjustTimeOut(record: AttendanceRecord, time: Date): Promise<AttendanceRecord> {
+  if (!record.time_out_original) throw new Error('No time out recorded yet.');
+  assertWithinAdjustmentWindow(record.time_out_original, time);
+  if (time.getTime() <= new Date(record.time_in).getTime()) {
+    throw new Error('Time out must be after time in.');
+  }
   const { data, error } = await supabase
     .from('attendance_records')
-    .update({ time_out: isoTime, time_out_manual: true })
-    .eq('id', recordId)
+    .update({ time_out: time.toISOString() })
+    .eq('id', record.id)
     .select()
     .single();
-  if (error || !data) throw friendlyError(error, 'Failed to update clock-out time');
+  if (error || !data) throw error;
   return data;
 }
 
-export async function getAttendanceRecordsForMonth(
+// Team view's date navigation (client-side refetch as the owner picks a
+// different day) — the initial day's data comes from
+// getAttendanceForWorkDate on the server instead.
+export async function getAttendanceRecordsForDate(workspaceId: string, workDate: string): Promise<AttendanceRecord[]> {
+  const { data, error } = await supabase
+    .from('attendance_records')
+    .select('*')
+    .eq('workspace_id', workspaceId)
+    .eq('work_date', workDate);
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Backs the Excel export — every workspace member's records across a date
+// range (inclusive). RLS already restricts this to "everyone's" only for
+// owners, so a non-owner calling it just gets their own rows back.
+export async function getAttendanceRecordsForRange(
   workspaceId: string,
-  monthStart: string,
-  monthEnd: string
+  startDate: string,
+  endDate: string
 ): Promise<AttendanceRecord[]> {
   const { data, error } = await supabase
     .from('attendance_records')
     .select('*')
     .eq('workspace_id', workspaceId)
-    .gte('work_date', monthStart)
-    .lte('work_date', monthEnd)
-    .order('work_date', { ascending: false });
+    .gte('work_date', startDate)
+    .lte('work_date', endDate)
+    .order('work_date', { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
