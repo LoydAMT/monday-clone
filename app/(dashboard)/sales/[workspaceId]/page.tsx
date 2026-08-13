@@ -8,6 +8,7 @@ import {
   getSalesWorkspaceMembers,
 } from '@/lib/sales-queries';
 import { SalesPipelineView } from '@/components/SalesPipelineView';
+import { hasFeature } from '@/lib/permissions';
 
 export default async function SalesPipelinePage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
@@ -25,6 +26,9 @@ export default async function SalesPipelinePage({ params }: { params: Promise<{ 
   ]);
   if (!session) redirect('/login');
   if (!workspace) notFound();
+  // RLS already returns nothing to a member without the sales feature, so
+  // this is about showing a 404 instead of a convincingly empty module.
+  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'sales')) notFound();
 
   return (
     <SalesPipelineView

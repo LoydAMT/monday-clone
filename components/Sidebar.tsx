@@ -3,20 +3,21 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Clock, Copy, Handshake, LayoutGrid, Menu, MoreHorizontal, Package, Plus, LogOut, Trash2, X } from 'lucide-react';
-import type { MemberProfile, WorkspaceRole } from '@/types/database';
+import { ChevronDown, ChevronRight, Clock, Copy, Handshake, LayoutGrid, Menu, MoreHorizontal, Package, Plus, LogOut, SlidersHorizontal, Trash2, UserPlus, X } from 'lucide-react';
+import type { MemberProfile } from '@/types/database';
 import type { WorkspaceWithBoards } from '@/lib/queries';
 import {
   createNewBoard,
   createBoardFromTemplate,
   deleteBoard,
   duplicateBoard,
-  inviteMember,
   removeMember,
-  updateMemberRole,
 } from '@/lib/mutations';
 import { BOARD_TEMPLATES } from '@/lib/templates';
+import { WORKSPACE_FEATURES, hasFeature, roleLabel } from '@/lib/permissions';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
+import { MemberAccessModal } from './MemberAccessModal';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import { NotificationBell } from './NotificationBell';
 import { signOut } from '@/app/login/actions';
 
@@ -118,6 +119,12 @@ export function Sidebar({
             const myMembership = workspace.members.find((m) => m.user_id === currentUserId);
             const canEdit = myMembership?.role !== 'viewer';
             const isWorkspaceOwner = myMembership?.role === 'owner';
+            // Mirrors the RLS feature gate so a restricted member isn't shown
+            // links that would only 404 — the database is what enforces it.
+            const showBoards = hasFeature(myMembership, 'boards');
+            const showInventory = hasFeature(myMembership, 'inventory');
+            const showAttendance = hasFeature(myMembership, 'attendance');
+            const showSales = hasFeature(myMembership, 'sales');
             return (
               <div key={workspace.id} className="mb-3">
                 <div className="flex items-center gap-1 pr-1">
@@ -133,73 +140,82 @@ export function Sidebar({
 
                 {!isCollapsed && (
                   <div className="mt-0.5 space-y-0.5 pl-3">
-                    <Link
-                      href={`/inventory/${workspace.id}`}
-                      onClick={() => setMobileOpen(false)}
-                      className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
-                        pathname === `/inventory/${workspace.id}`
-                          ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
-                          : 'text-gray-700 hover:bg-gray-200/60'
-                      }`}
-                    >
-                      <Package size={14} />
-                      Inventory
-                    </Link>
+                    {showInventory && (
+                      <Link
+                        href={`/inventory/${workspace.id}`}
+                        onClick={() => setMobileOpen(false)}
+                        className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
+                          pathname === `/inventory/${workspace.id}`
+                            ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
+                            : 'text-gray-700 hover:bg-gray-200/60'
+                        }`}
+                      >
+                        <Package size={14} />
+                        Inventory
+                      </Link>
+                    )}
 
-                    <Link
-                      href={`/attendance/${workspace.id}`}
-                      onClick={() => setMobileOpen(false)}
-                      className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
-                        pathname === `/attendance/${workspace.id}`
-                          ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
-                          : 'text-gray-700 hover:bg-gray-200/60'
-                      }`}
-                    >
-                      <Clock size={14} />
-                      Attendance
-                    </Link>
+                    {showAttendance && (
+                      <Link
+                        href={`/attendance/${workspace.id}`}
+                        onClick={() => setMobileOpen(false)}
+                        className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
+                          pathname === `/attendance/${workspace.id}`
+                            ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
+                            : 'text-gray-700 hover:bg-gray-200/60'
+                        }`}
+                      >
+                        <Clock size={14} />
+                        Attendance
+                      </Link>
+                    )}
 
-                    <Link
-                      href={`/sales/${workspace.id}`}
-                      onClick={() => setMobileOpen(false)}
-                      // startsWith, unlike the exact matches above — the sales
-                      // module has nested company routes that should keep the
-                      // section highlighted.
-                      className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
-                        pathname.startsWith(`/sales/${workspace.id}`)
-                          ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
-                          : 'text-gray-700 hover:bg-gray-200/60'
-                      }`}
-                    >
-                      <Handshake size={14} />
-                      Sales
-                    </Link>
+                    {showSales && (
+                      <Link
+                        href={`/sales/${workspace.id}`}
+                        onClick={() => setMobileOpen(false)}
+                        // startsWith, unlike the exact matches above — the sales
+                        // module has nested company routes that should keep the
+                        // section highlighted.
+                        className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
+                          pathname.startsWith(`/sales/${workspace.id}`)
+                            ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
+                            : 'text-gray-700 hover:bg-gray-200/60'
+                        }`}
+                      >
+                        <Handshake size={14} />
+                        Sales
+                      </Link>
+                    )}
 
-                    {workspace.boards.map((board) => {
-                      const active = params?.boardId === board.id;
-                      return (
-                        <div key={board.id} className="group flex items-center">
-                          <Link
-                            href={`/board/${board.id}`}
-                            onClick={() => setMobileOpen(false)}
-                            className={`block flex-1 truncate rounded px-2 py-1.5 text-sm ${
-                              active ? 'bg-[#e6f1fd] font-medium text-[#0073ea]' : 'text-gray-700 hover:bg-gray-200/60'
-                            }`}
-                          >
-                            {board.name}
-                          </Link>
-                          {canEdit && (
-                            <BoardMenu
-                              onDuplicate={() => handleDuplicateBoard(board.id)}
-                              onDelete={() => handleDeleteBoard(board.id)}
-                              canDelete={isWorkspaceOwner}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
+                    {showBoards &&
+                      workspace.boards.map((board) => {
+                        const active = params?.boardId === board.id;
+                        return (
+                          <div key={board.id} className="group flex items-center">
+                            <Link
+                              href={`/board/${board.id}`}
+                              onClick={() => setMobileOpen(false)}
+                              className={`block flex-1 truncate rounded px-2 py-1.5 text-sm ${
+                                active ? 'bg-[#e6f1fd] font-medium text-[#0073ea]' : 'text-gray-700 hover:bg-gray-200/60'
+                              }`}
+                            >
+                              {board.name}
+                            </Link>
+                            {canEdit && (
+                              <BoardMenu
+                                onDuplicate={() => handleDuplicateBoard(board.id)}
+                                onDelete={() => handleDeleteBoard(board.id)}
+                                canDelete={isWorkspaceOwner}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
 
-                    {canEdit && (
+                    {/* Board creation is owner-only (boards_insert_own in
+                        migration 0020); members would just hit an RLS error. */}
+                    {isWorkspaceOwner && (
                       <NewBoardMenu
                         disabled={isPending}
                         onCreateBlank={() => handleCreateBlankBoard(workspace.id, workspace.boards.length)}
@@ -238,10 +254,10 @@ function MembersPopover({
 }) {
   const [members, setMembers] = useState<MemberProfile[]>(workspace.members);
   const [open, setOpen] = useState(false);
-  const [email, setEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<Extract<WorkspaceRole, 'member' | 'viewer'>>('member');
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  // null = modal closed, 'new' = invite mode, a member = editing their access.
+  const [accessTarget, setAccessTarget] = useState<MemberProfile | 'new' | null>(null);
+  const [removingMember, setRemovingMember] = useState<MemberProfile | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const isOwner = members.find((m) => m.user_id === currentUserId)?.role === 'owner';
@@ -249,40 +265,28 @@ function MembersPopover({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
+      // The access modal and the remove confirmation both portal to
+      // document.body, so a click inside either is outside `ref` — closing
+      // the popover underneath would unmount the dialog mid-decision.
+      if (accessTarget || removingMember) return;
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, accessTarget, removingMember]);
 
-  async function handleInvite() {
-    const trimmed = email.trim();
-    if (!trimmed) return;
-    setError(null);
-    setPending(true);
-    try {
-      const member = await inviteMember(workspace.id, workspace.name, trimmed, inviteRole);
-      setMembers((prev) => [...prev, member]);
-      setEmail('');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to invite');
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function handleRemove(userId: string) {
-    setMembers((prev) => prev.filter((m) => m.user_id !== userId));
-    await removeMember(workspace.id, userId);
-  }
-
-  async function handleRoleChange(userId: string, role: WorkspaceRole) {
+  async function handleRemove(member: MemberProfile) {
     const previous = members;
-    setMembers((prev) => prev.map((m) => (m.user_id === userId ? { ...m, role } : m)));
+    setRemoveError(null);
+    setMembers((prev) => prev.filter((m) => m.user_id !== member.user_id));
+    setRemovingMember(null);
     try {
-      await updateMemberRole(workspace.id, userId, role);
-    } catch {
+      await removeMember(workspace.id, member.user_id);
+    } catch (e) {
+      // Previously this awaited with no catch, so a rejected delete left the
+      // person gone from the list but still in the workspace.
       setMembers(previous);
+      setRemoveError(e instanceof Error ? e.message : 'Could not remove that member');
     }
   }
 
@@ -308,6 +312,11 @@ function MembersPopover({
           <div className="mb-1 max-h-40 space-y-0.5 overflow-y-auto">
             {members.map((m) => {
               const isSelf = m.user_id === currentUserId;
+              // Owners are never restricted, so "limited" only ever applies to
+              // members and viewers — see can_access_board / can_view_module.
+              const limited =
+                m.role !== 'owner' &&
+                (m.board_access !== 'all' || m.features.length < WORKSPACE_FEATURES.length);
               return (
                 <div key={m.user_id} className="flex items-center gap-2 rounded px-1 py-1">
                   <span
@@ -320,20 +329,24 @@ function MembersPopover({
                     {displayName(m)}
                   </span>
                   {isOwner && !isSelf ? (
-                    <select
-                      value={m.role}
-                      onChange={(e) => handleRoleChange(m.user_id, e.target.value as WorkspaceRole)}
-                      className="rounded border border-gray-200 px-1 py-0.5 text-[10px] text-gray-600 outline-none focus:border-[#0073ea]"
+                    <button
+                      onClick={() => setAccessTarget(m)}
+                      title="Manage boards and modules"
+                      className="flex items-center gap-1 rounded border border-gray-200 px-1.5 py-0.5 text-[10px] text-gray-600 hover:border-[#0073ea] hover:text-[#0073ea]"
                     >
-                      <option value="owner">Owner</option>
-                      <option value="member">Member</option>
-                      <option value="viewer">Viewer</option>
-                    </select>
+                      <SlidersHorizontal size={10} />
+                      {roleLabel(m.role)}
+                      {limited && ' · limited'}
+                    </button>
                   ) : (
                     <span className="text-[10px] text-gray-400">{m.role}</span>
                   )}
                   {isOwner && !isSelf && (
-                    <button onClick={() => handleRemove(m.user_id)} className="text-gray-300 hover:text-red-500">
+                    <button
+                      onClick={() => setRemovingMember(m)}
+                      title={`Remove ${displayName(m)} from this workspace`}
+                      className="text-gray-300 hover:text-red-500"
+                    >
                       <X size={11} />
                     </button>
                   )}
@@ -342,36 +355,46 @@ function MembersPopover({
             })}
           </div>
 
+          {removeError && <p className="mb-1 px-1 text-[10px] text-red-500">{removeError}</p>}
+
           {isOwner && (
             <div className="border-t border-gray-100 pt-2">
-              <input
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
-                placeholder="Invite by email"
-                className="mb-1 w-full rounded border border-gray-300 px-1.5 py-1 text-xs outline-none focus:border-[#0073ea]"
-              />
-              <div className="flex items-center gap-1">
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as 'member' | 'viewer')}
-                  className="rounded border border-gray-300 px-1.5 py-1 text-xs outline-none focus:border-[#0073ea]"
-                >
-                  <option value="member">Member</option>
-                  <option value="viewer">Viewer</option>
-                </select>
-                <button
-                  onClick={handleInvite}
-                  disabled={pending}
-                  className="flex-1 rounded bg-[#0073ea] px-2 py-1 text-xs font-medium text-white hover:bg-[#0060c2] disabled:opacity-50"
-                >
-                  Invite
-                </button>
-              </div>
-              {error && <p className="mt-1 text-[10px] text-red-500">{error}</p>}
+              {/* Opens the same form used to edit access, so boards and
+                  modules are chosen as part of inviting rather than in a
+                  second pass afterwards. */}
+              <button
+                onClick={() => setAccessTarget('new')}
+                className="flex w-full items-center justify-center gap-1.5 rounded bg-[#0073ea] px-2 py-1.5 text-xs font-medium text-white hover:bg-[#0060c2]"
+              >
+                <UserPlus size={12} /> Invite member
+              </button>
             </div>
           )}
         </div>
+      )}
+
+      {accessTarget && (
+        <MemberAccessModal
+          workspaceId={workspace.id}
+          workspaceName={workspace.name}
+          boards={workspace.boards}
+          member={accessTarget === 'new' ? null : accessTarget}
+          onClose={() => setAccessTarget(null)}
+          onUpdated={(updated) =>
+            setMembers((prev) => prev.map((m) => (m.user_id === updated.user_id ? updated : m)))
+          }
+          onInvited={(invited) => setMembers((prev) => [...prev, invited])}
+        />
+      )}
+
+      {removingMember && (
+        <ConfirmDialog
+          title={`Remove ${displayName(removingMember)}?`}
+          message={`They lose access to ${workspace.name} immediately — every board and every module. Anything they created stays. Their board selections are cleared, so re-inviting them starts fresh.`}
+          confirmLabel="Remove member"
+          onConfirm={() => handleRemove(removingMember)}
+          onCancel={() => setRemovingMember(null)}
+        />
       )}
     </div>
   );

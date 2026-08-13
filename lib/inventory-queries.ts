@@ -16,7 +16,7 @@ export async function getInventoryWorkspaceMembers(
 ): Promise<MemberProfile[]> {
   const { data: memberRows, error } = await supabase
     .from('workspace_members')
-    .select('workspace_id, user_id, role')
+    .select('workspace_id, user_id, role, board_access, features')
     .eq('workspace_id', workspaceId);
   if (error) throw error;
   if (!memberRows || memberRows.length === 0) return [];

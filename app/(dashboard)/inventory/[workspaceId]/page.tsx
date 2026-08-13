@@ -9,6 +9,7 @@ import {
   getInventoryWorkspaceMembers,
 } from '@/lib/inventory-queries';
 import { InventoryView } from '@/components/InventoryView';
+import { hasFeature } from '@/lib/permissions';
 
 export default async function InventoryPage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
@@ -25,6 +26,9 @@ export default async function InventoryPage({ params }: { params: Promise<{ work
   ]);
   if (!session) redirect('/login');
   if (!workspace) notFound();
+  // RLS already returns nothing to a member without the inventory feature, so
+  // this is about showing a 404 instead of a convincingly empty module.
+  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'inventory')) notFound();
 
   // Needs the item ids resolved above, so it can't join the batch.
   const [stock, coverPhotoUrls] = await Promise.all([

@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/utils/supabase/server';
 import { getAttendanceWorkspace, getAttendanceWorkspaceMembers, getMyAttendanceHistory, getTodayAttendance } from '@/lib/attendance-queries';
 import { AttendanceView } from '@/components/AttendanceView';
+import { hasFeature } from '@/lib/permissions';
 
 export default async function AttendancePage({ params }: { params: Promise<{ workspaceId: string }> }) {
   const { workspaceId } = await params;
@@ -14,6 +15,9 @@ export default async function AttendancePage({ params }: { params: Promise<{ wor
   ]);
   if (!session) redirect('/login');
   if (!workspace) notFound();
+  // RLS already returns nothing to a member without the attendance feature, so
+  // this is about showing a 404 instead of a convincingly empty module.
+  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'attendance')) notFound();
 
   // Needs the session's user id resolved above, so it can't join the batch.
   const [today, history] = await Promise.all([

@@ -15,6 +15,10 @@ const EVERYONE_OPTION: MemberProfile = {
   email: '',
   full_name: 'everyone',
   role: 'member',
+  // Placeholder values — this option is never a real membership row, and
+  // nothing reads its access fields.
+  board_access: 'all',
+  features: [],
 };
 
 export function MentionInput({

@@ -20,7 +20,13 @@ export interface WorkspaceWithBoards extends Workspace {
 // PostgREST select — same two-query-then-stitch pattern used for boards below.
 export async function stitchMemberProfiles(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  memberRows: { workspace_id: string; user_id: string; role: MemberProfile['role'] }[]
+  memberRows: {
+    workspace_id: string;
+    user_id: string;
+    role: MemberProfile['role'];
+    board_access: MemberProfile['board_access'];
+    features: MemberProfile['features'];
+  }[]
 ): Promise<MemberProfile[]> {
   if (memberRows.length === 0) return [];
 
@@ -39,6 +45,8 @@ export async function stitchMemberProfiles(
       email: profile?.email ?? m.user_id,
       full_name: profile?.full_name ?? null,
       role: m.role,
+      board_access: m.board_access,
+      features: m.features,
     };
   });
 }
@@ -100,7 +108,7 @@ export async function getWorkspaceMembersForBoard(
 ): Promise<MemberProfile[]> {
   const { data: memberRows, error } = await supabase
     .from('workspace_members')
-    .select('workspace_id, user_id, role, workspaces!inner(boards!inner(id))')
+    .select('workspace_id, user_id, role, board_access, features, workspaces!inner(boards!inner(id))')
     .eq('workspaces.boards.id', boardId);
   if (error) throw error;
   if (!memberRows || memberRows.length === 0) return [];

@@ -387,11 +387,31 @@ export interface ActivityLog {
 
 export type WorkspaceRole = 'owner' | 'member' | 'viewer';
 
+// Which standalone modules a member may reach. Mirrors
+// workspace_members.features' check constraint; see lib/permissions.ts.
+export type WorkspaceFeature = 'boards' | 'inventory' | 'attendance' | 'sales';
+
+// 'all' = every board in the workspace (the default, and how every member
+// behaved before migration 0020). 'selected' = only boards granted through
+// the board_members table.
+export type BoardAccess = 'all' | 'selected';
+
 export interface WorkspaceMember {
   id: string;
   workspace_id: string;
   user_id: string;
   role: WorkspaceRole;
+  board_access: BoardAccess;
+  features: WorkspaceFeature[];
+  created_at: string;
+}
+
+// A single board grant, consulted only while the member's board_access is
+// 'selected' — so revoking the mode restores full visibility without the
+// grants having to be recreated.
+export interface BoardMember {
+  board_id: string;
+  user_id: string;
   created_at: string;
 }
 
@@ -407,6 +427,8 @@ export interface MemberProfile {
   email: string;
   full_name: string | null;
   role: WorkspaceRole;
+  board_access: BoardAccess;
+  features: WorkspaceFeature[];
 }
 
 export interface Notification {

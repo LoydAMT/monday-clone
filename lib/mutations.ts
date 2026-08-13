@@ -4,6 +4,7 @@ import type {
   AutomationActionType,
   AutomationTriggerType,
   Board,
+  BoardAccess,
   BoardShareLink,
   Column,
   ColumnOptions,
@@ -12,6 +13,7 @@ import type {
   Item,
   ItemCells,
   MemberProfile,
+  WorkspaceFeature,
   WorkspaceRole,
 } from '@/types/database';
 import type { BoardTemplate } from '@/lib/templates';
@@ -19,17 +21,28 @@ import { createNotification } from '@/lib/notifications';
 
 const supabase = createClient();
 
+// Postgres unique-violation — hit when inviting someone who is already a
+// member of the workspace.
+const UNIQUE_VIOLATION = '23505';
+
 export async function logActivity(itemId: string, action: string, meta: Record<string, unknown> = {}) {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return;
   await supabase.from('activity_log').insert({ item_id: itemId, actor_id: auth.user.id, action, meta });
 }
 
+/**
+ * Invites an existing account into a workspace, optionally with its access
+ * already narrowed. Passing `access` sets the limits in the same operation as
+ * the membership row, so there's never a window where a newly invited member
+ * can see everything before the owner gets round to restricting them.
+ */
 export async function inviteMember(
   workspaceId: string,
   workspaceName: string,
   email: string,
-  role: Extract<WorkspaceRole, 'member' | 'viewer'> = 'member'
+  role: Extract<WorkspaceRole, 'member' | 'viewer'> = 'member',
+  access?: { board_access: BoardAccess; features: WorkspaceFeature[]; boardIds: string[] }
 ): Promise<MemberProfile> {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
@@ -39,17 +52,108 @@ export async function inviteMember(
   if (profileError) throw profileError;
   if (!profile) throw new Error('No account found with that email — they need to sign up first.');
 
-  const { error: memberError } = await supabase
+  // Read the row back rather than assuming the defaults — board_access and
+  // features are database defaults, and this way the popover shows what was
+  // actually stored.
+  const { data: member, error: memberError } = await supabase
     .from('workspace_members')
-    .insert({ workspace_id: workspaceId, user_id: profile.id, role });
-  if (memberError) throw memberError;
+    .insert({
+      workspace_id: workspaceId,
+      user_id: profile.id,
+      role,
+      ...(access ? { board_access: access.board_access, features: access.features } : {}),
+    })
+    .select('role, board_access, features')
+    .single();
+  if (memberError?.code === UNIQUE_VIOLATION) {
+    throw new Error('That person is already a member of this workspace.');
+  }
+  if (memberError || !member) throw memberError;
+
+  // Board grants can only be written once the membership row exists, since
+  // board_members' policy resolves the workspace owner through it.
+  if (access && access.board_access === 'selected' && access.boardIds.length > 0) {
+    const { error: grantError } = await supabase
+      .from('board_members')
+      .insert(access.boardIds.map((boardId) => ({ board_id: boardId, user_id: profile.id })));
+    if (grantError) throw grantError;
+  }
 
   await createNotification(workspaceId, profile.id, 'invited_to_workspace', { workspace_name: workspaceName });
 
-  return { user_id: profile.id, email: profile.email, full_name: profile.full_name, role };
+  return {
+    user_id: profile.id,
+    email: profile.email,
+    full_name: profile.full_name,
+    role: member.role,
+    board_access: member.board_access,
+    features: member.features,
+  };
+}
+
+// ============================================================================
+// Per-member access control (owner-only; workspace_members_update and
+// board_members' policies enforce that server-side).
+// ============================================================================
+
+export async function updateMemberAccess(
+  workspaceId: string,
+  userId: string,
+  patch: { board_access?: BoardAccess; features?: WorkspaceFeature[] }
+) {
+  const { error } = await supabase
+    .from('workspace_members')
+    .update(patch)
+    .eq('workspace_id', workspaceId)
+    .eq('user_id', userId);
+  if (error) throw error;
+}
+
+/** Board ids a given member has been explicitly granted in this workspace. */
+export async function getBoardGrants(workspaceId: string, userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('board_members')
+    .select('board_id, boards!inner(workspace_id)')
+    .eq('user_id', userId)
+    .eq('boards.workspace_id', workspaceId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.board_id);
+}
+
+export async function setBoardGrant(boardId: string, userId: string, granted: boolean) {
+  if (granted) {
+    // Re-granting an existing board is a no-op rather than a duplicate-key
+    // error — the primary key is (board_id, user_id).
+    const { error } = await supabase
+      .from('board_members')
+      .upsert({ board_id: boardId, user_id: userId }, { onConflict: 'board_id,user_id' });
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase
+    .from('board_members')
+    .delete()
+    .eq('board_id', boardId)
+    .eq('user_id', userId);
+  if (error) throw error;
 }
 
 export async function removeMember(workspaceId: string, userId: string) {
+  // Clear their per-board grants first. board_members only cascades when the
+  // *account* is deleted, not when a membership ends — so without this the
+  // old picks would silently come back to life if they were ever re-invited
+  // with board_access 'selected'.
+  const { data: boards } = await supabase.from('boards').select('id').eq('workspace_id', workspaceId);
+  const boardIds = (boards ?? []).map((b) => b.id);
+  if (boardIds.length > 0) {
+    const { error: grantError } = await supabase
+      .from('board_members')
+      .delete()
+      .eq('user_id', userId)
+      .in('board_id', boardIds);
+    if (grantError) throw grantError;
+  }
+
   const { error } = await supabase.from('workspace_members').delete().eq('workspace_id', workspaceId).eq('user_id', userId);
   if (error) throw error;
 }

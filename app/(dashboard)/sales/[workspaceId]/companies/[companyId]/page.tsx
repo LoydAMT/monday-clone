@@ -10,6 +10,7 @@ import {
   getSalesWorkspaceMembers,
 } from '@/lib/sales-queries';
 import { SalesCompanyProfile } from '@/components/SalesCompanyProfile';
+import { hasFeature } from '@/lib/permissions';
 
 export default async function SalesCompanyPage({
   params,
@@ -42,6 +43,9 @@ export default async function SalesCompanyPage({
   ]);
   if (!session) redirect('/login');
   if (!workspace) notFound();
+  // RLS already returns nothing to a member without the sales feature, so
+  // this is about showing a 404 instead of a convincingly empty module.
+  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'sales')) notFound();
   // RLS already blocks a company in a workspace you're not a member of; this
   // additionally rejects a real company reached through the wrong workspace's
   // URL, which would otherwise render under the wrong header and tabs.
