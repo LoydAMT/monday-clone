@@ -21,6 +21,10 @@ function describeNotification(n: Notification): string {
       return `You were mentioned: "${stripMentionTokens(payload.body ?? '').slice(0, 60)}"`;
     case 'automation_notify':
       return `Automation: "${payload.item_title}" ${payload.column_name} is now "${payload.status_value}"`;
+    case 'sales_deal_assigned':
+      return `You now own the deal "${payload.deal_title}"`;
+    case 'sales_task_assigned':
+      return `Sales task assigned: "${payload.task_title}"`;
     default:
       return n.type;
   }
@@ -30,6 +34,13 @@ function notificationHref(n: Notification): string | null {
   const payload = n.payload as Record<string, string>;
   if (payload.board_id) {
     return payload.item_id ? `/board/${payload.board_id}?item=${payload.item_id}` : `/board/${payload.board_id}`;
+  }
+  // Sales notifications deep-link to the pipeline with the deal open (the
+  // `?deal=` param SalesPipelineView reads), or to the company profile when
+  // the task isn't tied to a deal.
+  if (payload.workspace_id) {
+    if (payload.deal_id) return `/sales/${payload.workspace_id}?deal=${payload.deal_id}`;
+    if (payload.company_id) return `/sales/${payload.workspace_id}/companies/${payload.company_id}`;
   }
   return null;
 }

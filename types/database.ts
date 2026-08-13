@@ -209,6 +209,164 @@ export interface AttendanceRecord {
   updated_at: string;
 }
 
+// ============================================================================
+// Sales / CRM — a standalone module like inventory above, with its own tables,
+// routes and UI. See supabase/migrations/0019_sales.sql; the pipeline stage
+// list and its ordering live in lib/sales-stages.ts.
+// ============================================================================
+
+export type SalesStage =
+  | 'lead'
+  | 'qualified'
+  | 'site_inspection'
+  | 'quotation_preparation'
+  | 'quotation_submitted'
+  | 'follow_up'
+  | 'negotiation'
+  | 'po_received'
+  | 'project_awarded'
+  | 'completed'
+  | 'lost';
+
+export type QuotationStatus = 'draft' | 'submitted' | 'accepted' | 'rejected' | 'expired';
+
+export type SalesActivityType = 'email' | 'call' | 'meeting' | 'note';
+
+export type SalesActivityDirection = 'inbound' | 'outbound';
+
+export interface SalesCompany {
+  id: string;
+  workspace_id: string;
+  name: string;
+  industry: string | null;
+  website: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  tax_id: string | null;
+  notes: string | null;
+  owner_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesContact {
+  id: string;
+  company_id: string;
+  name: string;
+  position: string | null;
+  email: string | null;
+  phone: string | null;
+  is_primary: boolean;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesDeal {
+  id: string;
+  workspace_id: string;
+  company_id: string;
+  contact_id: string | null;
+  title: string;
+  reference_no: string | null;
+  stage: SalesStage;
+  value: number | null;
+  currency: string;
+  source: string | null;
+  expected_order_date: string | null;
+  next_follow_up_on: string | null;
+  owner_id: string | null;
+  lost_reason: string | null;
+  closed_at: string | null;
+  description: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesQuotation {
+  id: string;
+  deal_id: string;
+  quote_number: string;
+  revision: number;
+  amount: number;
+  currency: string;
+  status: QuotationStatus;
+  submitted_on: string | null;
+  valid_until: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesSiteVisit {
+  id: string;
+  deal_id: string;
+  scheduled_at: string;
+  completed_at: string | null;
+  site_address: string | null;
+  findings: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesActivity {
+  id: string;
+  company_id: string;
+  deal_id: string | null;
+  type: SalesActivityType;
+  direction: SalesActivityDirection | null;
+  subject: string | null;
+  body: string | null;
+  occurred_at: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesTask {
+  id: string;
+  workspace_id: string;
+  company_id: string | null;
+  deal_id: string | null;
+  title: string;
+  details: string | null;
+  due_at: string | null;
+  assigned_to: string | null;
+  done_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Per-company roll-up computed in lib/sales-queries.ts for the company
+// directory, so the list doesn't have to load every deal to show its totals.
+export interface SalesCompanySummary {
+  dealCount: number;
+  openCount: number;
+  wonCount: number;
+  lostCount: number;
+  openValue: number;
+  wonValue: number;
+  // Soonest upcoming follow-up across the company's open deals, or null.
+  nextFollowUpOn: string | null;
+}
+
+// Everything hanging off one deal, loaded together when its modal opens.
+export interface SalesDealDetail {
+  quotations: SalesQuotation[];
+  siteVisits: SalesSiteVisit[];
+  activities: SalesActivity[];
+  tasks: SalesTask[];
+}
+
 export interface Comment {
   id: string;
   item_id: string;
