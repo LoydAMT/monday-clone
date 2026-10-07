@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Building2, ChevronRight, Pencil, Plus } from 'lucide-react';
+import { Building2, ChevronRight, Pencil, Plus, Star } from 'lucide-react';
 import type {
   MemberProfile,
   SalesActivity,
@@ -12,6 +12,7 @@ import type {
 } from '@/types/database';
 import { formatDateString, formatMoney } from '@/lib/sales-stages';
 import { pipelineTotals } from '@/lib/sales-summary';
+import { updateSalesContact } from '@/lib/sales-mutations';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
 import { SalesHeader } from './SalesHeader';
 import { SalesStageBadge } from './SalesStageBadge';
@@ -74,9 +75,34 @@ export function SalesCompanyProfile({
   // Whether the details card has anything at all to show. Without this the
   // card renders as an empty bordered bar on a company that's only been given
   // a name — which is exactly how most of them start life.
+  // The person to call, surfaced in the details card. With no primary set, an
+  // editor gets a picker there instead, so the choice is one click away
+  // rather than buried in a contact's edit form.
+  const primaryContact = contacts.find((c) => c.is_primary);
+  const canPickPrimary = !primaryContact && canEdit && contacts.length > 0;
+  const [primaryError, setPrimaryError] = useState<string | null>(null);
+
   const hasDetails = Boolean(
-    company.email || company.phone || company.website || fullAddress || company.tax_id || manager || company.notes
+    company.email ||
+      company.phone ||
+      company.website ||
+      fullAddress ||
+      company.tax_id ||
+      manager ||
+      company.notes ||
+      primaryContact ||
+      canPickPrimary
   );
+
+  async function handlePickPrimary(contactId: string) {
+    setPrimaryError(null);
+    try {
+      const updated = await updateSalesContact(contactId, company.id, { is_primary: true });
+      setContacts((prev) => prev.map((c) => (c.id === updated.id ? updated : { ...c, is_primary: false })));
+    } catch (e) {
+      setPrimaryError(e instanceof Error ? e.message : 'Failed to set the primary contact');
+    }
+  }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -177,6 +203,45 @@ export function SalesCompanyProfile({
                       </span>
                       {displayName(manager)}
                     </span>
+                  </Detail>
+                )}
+                {primaryContact && (
+                  <Detail label="Contact">
+                    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span className="inline-flex items-center gap-1 font-medium text-gray-800">
+                        <Star size={12} className="shrink-0 fill-[#fdab3d] text-[#fdab3d]" aria-label="Primary contact" />
+                        {primaryContact.name}
+                      </span>
+                      {primaryContact.position && <span className="text-xs text-gray-400">{primaryContact.position}</span>}
+                      {primaryContact.phone && (
+                        <a href={`tel:${primaryContact.phone}`} className="text-[#0073ea] hover:underline">
+                          {primaryContact.phone}
+                        </a>
+                      )}
+                      {primaryContact.email && (
+                        <a href={`mailto:${primaryContact.email}`} className="text-[#0073ea] hover:underline">
+                          {primaryContact.email}
+                        </a>
+                      )}
+                    </span>
+                  </Detail>
+                )}
+                {canPickPrimary && (
+                  <Detail label="Contact">
+                    <select
+                      value=""
+                      onChange={(e) => e.target.value && handlePickPrimary(e.target.value)}
+                      className="w-full max-w-xs rounded border border-gray-300 px-2 py-1 text-sm text-gray-700 outline-none focus:border-[#0073ea]"
+                    >
+                      <option value="">Choose a primary contact…</option>
+                      {contacts.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                          {c.position ? ` — ${c.position}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {primaryError && <p className="mt-1 text-xs text-red-500">{primaryError}</p>}
                   </Detail>
                 )}
                 {company.notes && (
