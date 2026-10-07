@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import type { MemberProfile, SalesCompany, SalesContact, SalesDeal } from '@/types/database';
+import { deleteSalesContact } from '@/lib/sales-mutations';
+import { ConfirmDialog } from './ui/ConfirmDialog';
 import { SalesHeader } from './SalesHeader';
 import { SalesContactModal } from './SalesContactModal';
 
@@ -33,6 +35,9 @@ export function SalesContactsView({
   // undefined = closed, null = create mode, a contact = edit mode.
   const [activeContact, setActiveContact] = useState<SalesContact | null | undefined>(undefined);
 
+  const [pendingDelete, setPendingDelete] = useState<SalesContact | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const canEdit = members.find((m) => m.user_id === currentUserId)?.role !== 'viewer';
 
   const companiesById = useMemo(() => new Map(companies.map((c) => [c.id, c])), [companies]);
@@ -43,6 +48,22 @@ export function SalesContactsView({
     }
     return counts;
   }, [deals]);
+
+  // Safe on a contact that deals point at: sales_deals.contact_id is
+  // `on delete set null`, so those deals stay and just lose their contact
+  // person. The row is only dropped from the list once the delete lands.
+  async function handleDelete(contact: SalesContact) {
+    setPendingDelete(null);
+    setError(null);
+    try {
+      await deleteSalesContact(contact.id);
+      setContacts((prev) => prev.filter((c) => c.id !== contact.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : `Failed to delete ${contact.name}`);
+    }
+  }
+
+  const pendingDeleteDeals = pendingDelete ? (dealCountByContact.get(pendingDelete.id) ?? 0) : 0;
 
   const query = search.trim().toLowerCase();
   const filtered = contacts.filter((contact) => {
@@ -85,6 +106,7 @@ export function SalesContactsView({
       </div>
 
       <div className="flex-1 overflow-auto px-6 py-4">
+        {error && <p className="mb-2 text-xs text-red-500">{error}</p>}
         {filtered.length === 0 ? (
           <p className="px-1 py-8 text-center text-sm text-gray-400">
             {contacts.length === 0
@@ -101,6 +123,7 @@ export function SalesContactsView({
                 <th className="px-2 py-2">Email</th>
                 <th className="px-2 py-2">Address</th>
                 <th className="px-2 py-2 text-right">Deals</th>
+                {canEdit && <th className="w-8 px-2 py-2" />}
               </tr>
             </thead>
             <tbody>
@@ -133,6 +156,20 @@ export function SalesContactsView({
                     <td className="px-2 py-2 text-gray-600">{contact.email ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-2 py-2 text-gray-600">{contact.address ?? <span className="text-gray-300">—</span>}</td>
                     <td className="px-2 py-2 text-right text-gray-700">{dealCountByContact.get(contact.id) ?? 0}</td>
+                    {canEdit && (
+                      <td className="px-2 py-2 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPendingDelete(contact);
+                          }}
+                          title="Delete contact"
+                          className="text-gray-300 hover:text-red-500"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -154,6 +191,19 @@ export function SalesContactsView({
           onCompanyCreated={(created) =>
             setCompanies((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
           }
+        />
+      )}
+
+      {pendingDelete && (
+        <ConfirmDialog
+          title={`Delete ${pendingDelete.name}?`}
+          message={
+            pendingDeleteDeals > 0
+              ? `This contact is assigned to ${pendingDeleteDeals} ${pendingDeleteDeals === 1 ? 'deal' : 'deals'}. Those deals are kept and will show no contact person.`
+              : 'This permanently deletes the contact. They are not assigned to any deals.'
+          }
+          onConfirm={() => handleDelete(pendingDelete)}
+          onCancel={() => setPendingDelete(null)}
         />
       )}
     </div>
