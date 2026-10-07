@@ -106,7 +106,7 @@ export async function findOrCreateSalesCompany(workspaceId: string, name: string
 
 export type SalesContactInput = Pick<
   SalesContact,
-  'name' | 'position' | 'email' | 'phone' | 'is_primary' | 'notes'
+  'name' | 'position' | 'email' | 'phone' | 'address' | 'is_primary' | 'notes'
 >;
 
 export async function createSalesContact(companyId: string, input: SalesContactInput): Promise<SalesContact> {

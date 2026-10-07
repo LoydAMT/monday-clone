@@ -115,7 +115,10 @@ export function SalesDealModal({
   const detailLoading = savedDealId != null && loadedDealId !== savedDealId;
 
   const company = companyList.find((c) => c.id === companyId) ?? null;
-  const companyContacts = contacts.filter((c) => c.company_id === companyId);
+  // With no customer picked yet the whole contact directory is on offer, and
+  // choosing a person fills in their company — so a deal can be started from
+  // the lead rather than from the customer.
+  const contactOptions = companyId ? contacts.filter((c) => c.company_id === companyId) : contacts;
   const readOnly = !canEdit;
 
   function buildInput() {
@@ -235,17 +238,24 @@ export function SalesDealModal({
           <Field label="Contact person">
             <select
               value={contactId}
-              onChange={(e) => setContactId(e.target.value)}
-              disabled={readOnly || !companyId}
+              onChange={(e) => {
+                setContactId(e.target.value);
+                const picked = contacts.find((c) => c.id === e.target.value);
+                if (picked && !companyId) setCompanyId(picked.company_id);
+              }}
+              disabled={readOnly}
               className={fieldInputClass}
             >
-              <option value="">{companyContacts.length === 0 ? 'No contacts on file' : 'Not set'}</option>
-              {companyContacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                  {c.position ? ` — ${c.position}` : ''}
-                </option>
-              ))}
+              <option value="">{contactOptions.length === 0 ? 'No contacts on file' : 'Not set'}</option>
+              {contactOptions.map((c) => {
+                const detail = companyId ? c.position : companyList.find((co) => co.id === c.company_id)?.name;
+                return (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                    {detail ? ` — ${detail}` : ''}
+                  </option>
+                );
+              })}
             </select>
           </Field>
 

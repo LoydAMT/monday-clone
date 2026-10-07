@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// Shared chrome for the three sales routes (pipeline, company directory,
-// company profile) so the module reads as one section rather than three
+// Shared chrome for the sales routes (pipeline, company directory, company
+// profile, contact directory) so the module reads as one section rather than three
 // unrelated pages. `actions` is the page's own primary button.
 export function SalesHeader({
   workspaceId,
@@ -27,7 +27,9 @@ export function SalesHeader({
   const pathname = usePathname();
   const pipelineHref = `/sales/${workspaceId}`;
   const companiesHref = `/sales/${workspaceId}/companies`;
+  const contactsHref = `/sales/${workspaceId}/contacts`;
   const onCompanies = pathname.startsWith(companiesHref);
+  const onContacts = pathname.startsWith(contactsHref);
 
   return (
     <div className="border-b border-gray-200 bg-white px-6 py-4">
@@ -50,11 +52,14 @@ export function SalesHeader({
       </div>
 
       <div className="mt-3 flex gap-1">
-        <Tab href={pipelineHref} active={!onCompanies}>
+        <Tab href={pipelineHref} active={!onCompanies && !onContacts}>
           Pipeline
         </Tab>
         <Tab href={companiesHref} active={onCompanies}>
           Companies
+        </Tab>
+        <Tab href={contactsHref} active={onContacts}>
+          Contacts
         </Tab>
       </div>
     </div>

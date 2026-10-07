@@ -260,6 +260,7 @@ export interface SalesContact {
   position: string | null;
   email: string | null;
   phone: string | null;
+  address: string | null;
   is_primary: boolean;
   notes: string | null;
   created_by: string | null;

@@ -11,6 +11,7 @@ const EMPTY_CONTACT: SalesContactInput = {
   position: null,
   email: null,
   phone: null,
+  address: null,
   is_primary: false,
   notes: null,
 };
@@ -154,6 +155,7 @@ function ContactForm({
   const [position, setPosition] = useState(initial.position ?? '');
   const [email, setEmail] = useState(initial.email ?? '');
   const [phone, setPhone] = useState(initial.phone ?? '');
+  const [address, setAddress] = useState(initial.address ?? '');
   const [isPrimary, setIsPrimary] = useState(initial.is_primary);
   const [notes, setNotes] = useState(initial.notes ?? '');
   const [saving, setSaving] = useState(false);
@@ -173,6 +175,7 @@ function ContactForm({
         position: position.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
+        address: address.trim() || null,
         is_primary: isPrimary,
         notes: notes.trim() || null,
       });
@@ -197,6 +200,9 @@ function ContactForm({
         </Field>
         <Field label="Phone">
           <input value={phone} onChange={(e) => setPhone(e.target.value)} className={fieldInputClass} />
+        </Field>
+        <Field label="Address" className="sm:col-span-2">
+          <input value={address} onChange={(e) => setAddress(e.target.value)} className={fieldInputClass} />
         </Field>
         <Field label="Notes" className="sm:col-span-2">
           <input value={notes} onChange={(e) => setNotes(e.target.value)} className={fieldInputClass} />
