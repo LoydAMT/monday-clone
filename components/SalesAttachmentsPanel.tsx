@@ -46,7 +46,7 @@ export function SalesAttachmentsPanel({
   // Which scope `files` was fetched for. Deriving "loading" from this, rather
   // than flipping a flag inside the effect, keeps the effect free of
   // synchronous setState (same approach as SalesDealModal's detail load).
-  const [loaded, setLoaded] = useState<{ key: string; files: SalesAttachment[]; failed: boolean } | null>(null);
+  const [loaded, setLoaded] = useState<{ key: string; files: SalesAttachment[]; failed: string | null } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -56,10 +56,12 @@ export function SalesAttachmentsPanel({
     let cancelled = false;
     getSalesAttachments({ companyId, dealId, quotationId })
       .then((files) => {
-        if (!cancelled) setLoaded({ key: scopeKey, files, failed: false });
+        if (!cancelled) setLoaded({ key: scopeKey, files, failed: null });
       })
-      .catch(() => {
-        if (!cancelled) setLoaded({ key: scopeKey, files: [], failed: true });
+      .catch((e) => {
+        // Supabase errors are plain objects with a message, not Error instances.
+        const message = e && typeof e === 'object' && 'message' in e ? String(e.message) : 'Unknown error';
+        if (!cancelled) setLoaded({ key: scopeKey, files: [], failed: message });
       });
     return () => {
       cancelled = true;
@@ -137,7 +139,7 @@ export function SalesAttachmentsPanel({
 
       {loading && <p className="py-2 text-xs text-gray-400">Loading files…</p>}
       {loaded?.key === scopeKey && loaded.failed && (
-        <p className="py-2 text-xs text-red-500">Couldn’t load files. Refresh to try again.</p>
+        <p className="py-2 text-xs text-red-500">Couldn’t load files: {loaded.failed}</p>
       )}
 
       {!loading && !loaded?.failed && files.length === 0 && !canEdit && (

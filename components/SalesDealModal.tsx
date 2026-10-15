@@ -22,6 +22,7 @@ import { displayName } from '@/lib/avatar-color';
 import { Modal } from './ui/Modal';
 import { SalesDeleteDealDialog } from './SalesDeleteDealDialog';
 import { Field, fieldInputClass } from './ui/Field';
+import { AutoGrowTextarea } from './ui/AutoGrowTextarea';
 import { SalesStageSelect } from './SalesStageBadge';
 import { SalesCompanyCombobox } from './SalesCompanyCombobox';
 import { SalesQuotationsPanel } from './SalesQuotationsPanel';
@@ -370,12 +371,12 @@ export function SalesDealModal({
           )}
 
           <Field label="Scope / notes" className="sm:col-span-3">
-            <textarea
+            <AutoGrowTextarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               readOnly={readOnly}
               rows={2}
-              className={`${fieldInputClass} resize-none`}
+              className={fieldInputClass}
             />
           </Field>
         </div>
