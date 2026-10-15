@@ -208,7 +208,7 @@ export function SalesCompanyModal({
       {confirmingDelete && (
         <ConfirmDialog
           title="Delete this company?"
-          message="This permanently deletes the company along with its contacts, deals, quotations, site visits, communications and tasks."
+          message="This permanently deletes the company along with its contacts, deals, quotations, site visits, files, communications and tasks."
           onConfirm={handleDelete}
           onCancel={() => setConfirmingDelete(false)}
         />

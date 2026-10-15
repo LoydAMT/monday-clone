@@ -1,11 +1,13 @@
 import { createClient } from '@/utils/supabase/client';
 import { createNotification } from '@/lib/notifications';
 import { isClosedStage, isLostStage } from '@/lib/sales-stages';
+import { getSalesAttachmentPaths, removeSalesAttachmentObjects } from '@/lib/sales-attachments';
 import type {
   SalesActivity,
   SalesCompany,
   SalesContact,
   SalesDeal,
+  SalesDealCost,
   SalesDealDetail,
   SalesQuotation,
   SalesSiteVisit,
@@ -63,8 +65,12 @@ export async function updateSalesCompany(
 }
 
 export async function deleteSalesCompany(companyId: string): Promise<void> {
+  // Covers files attached to the company's deals as well — every
+  // sales_attachments row carries its company_id.
+  const filePaths = await getSalesAttachmentPaths({ companyId });
   const { error } = await supabase.from('sales_companies').delete().eq('id', companyId);
   if (error) throw error;
+  await removeSalesAttachmentObjects(filePaths);
 }
 
 // Backs the deal form's "type a customer name to create it" combobox.
@@ -266,8 +272,10 @@ export async function moveDealToStage(
 }
 
 export async function deleteSalesDeal(dealId: string): Promise<void> {
+  const filePaths = await getSalesAttachmentPaths({ dealId });
   const { error } = await supabase.from('sales_deals').delete().eq('id', dealId);
   if (error) throw error;
+  await removeSalesAttachmentObjects(filePaths);
 }
 
 async function notifyDealOwner(deal: SalesDeal, workspaceName: string, actorId: string | null): Promise<void> {
@@ -287,7 +295,7 @@ async function notifyDealOwner(deal: SalesDeal, workspaceName: string, actorId: 
 // ============================================================================
 
 export async function getDealDetail(dealId: string, companyId: string): Promise<SalesDealDetail> {
-  const [quotations, siteVisits, activities, tasks] = await Promise.all([
+  const [quotations, siteVisits, activities, tasks, costs] = await Promise.all([
     supabase.from('sales_quotations').select('*').eq('deal_id', dealId).order('created_at', { ascending: false }),
     supabase.from('sales_site_visits').select('*').eq('deal_id', dealId).order('scheduled_at', { ascending: false }),
     supabase
@@ -302,9 +310,10 @@ export async function getDealDetail(dealId: string, companyId: string): Promise<
       .eq('deal_id', dealId)
       .order('done_at', { ascending: true, nullsFirst: true })
       .order('due_at', { ascending: true, nullsFirst: false }),
+    supabase.from('sales_deal_costs').select('*').eq('deal_id', dealId).order('created_at', { ascending: true }),
   ]);
 
-  const firstError = quotations.error ?? siteVisits.error ?? activities.error ?? tasks.error;
+  const firstError = quotations.error ?? siteVisits.error ?? activities.error ?? tasks.error ?? costs.error;
   if (firstError) throw firstError;
 
   return {
@@ -312,6 +321,7 @@ export async function getDealDetail(dealId: string, companyId: string): Promise<
     siteVisits: siteVisits.data ?? [],
     activities: activities.data ?? [],
     tasks: tasks.data ?? [],
+    costs: costs.data ?? [],
   };
 }
 
@@ -358,7 +368,33 @@ export async function updateSalesQuotation(
 }
 
 export async function deleteSalesQuotation(quotationId: string): Promise<void> {
+  // The quotation's files cascade with it; clean their Storage objects up too.
+  const filePaths = await getSalesAttachmentPaths({ quotationId });
   const { error } = await supabase.from('sales_quotations').delete().eq('id', quotationId);
+  if (error) throw error;
+  await removeSalesAttachmentObjects(filePaths);
+}
+
+// ============================================================================
+// Deal costs (the cost side of the deal's P&L)
+// ============================================================================
+
+export type SalesDealCostInput = Pick<SalesDealCost, 'category' | 'description' | 'amount'>;
+
+export async function createSalesDealCost(dealId: string, input: SalesDealCostInput): Promise<SalesDealCost> {
+  const { data: auth } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from('sales_deal_costs')
+    .insert({ ...input, deal_id: dealId, created_by: auth.user?.id ?? null })
+    .select()
+    .single();
+  if (error || !data) throw error;
+  return data;
+}
+
+export async function deleteSalesDealCost(costId: string): Promise<void> {
+  const { error } = await supabase.from('sales_deal_costs').delete().eq('id', costId);
   if (error) throw error;
 }
 

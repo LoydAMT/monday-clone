@@ -347,6 +347,43 @@ export interface SalesTask {
   updated_at: string;
 }
 
+export interface SalesAttachment {
+  id: string;
+  workspace_id: string;
+  company_id: string;
+  deal_id: string | null;
+  /** Set when the file belongs to one quotation (e.g. the customer's PO). */
+  quotation_id: string | null;
+  storage_path: string;
+  file_name: string;
+  file_size: number;
+  content_type: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+  /** Joined in by getSalesAttachments for quotation files, for display. */
+  quotation?: { quote_number: string; revision: number } | null;
+}
+
+export type SalesCostCategory =
+  | 'materials'
+  | 'labor'
+  | 'subcontractor'
+  | 'equipment'
+  | 'transport'
+  | 'overhead'
+  | 'other';
+
+export interface SalesDealCost {
+  id: string;
+  deal_id: string;
+  category: SalesCostCategory;
+  description: string;
+  amount: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Per-company roll-up computed in lib/sales-queries.ts for the company
 // directory, so the list doesn't have to load every deal to show its totals.
 export interface SalesCompanySummary {
@@ -366,6 +403,7 @@ export interface SalesDealDetail {
   siteVisits: SalesSiteVisit[];
   activities: SalesActivity[];
   tasks: SalesTask[];
+  costs: SalesDealCost[];
 }
 
 export interface Comment {

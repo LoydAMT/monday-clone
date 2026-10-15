@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Paperclip, Plus, Trash2 } from 'lucide-react';
 import type { QuotationStatus, SalesQuotation } from '@/types/database';
 import {
   CURRENCIES,
@@ -12,15 +12,21 @@ import {
   todayDateString,
 } from '@/lib/sales-stages';
 import { createSalesQuotation, deleteSalesQuotation, updateSalesQuotation } from '@/lib/sales-mutations';
+import { getQuotationFileCounts } from '@/lib/sales-attachments';
 import { Field, fieldInputClass } from './ui/Field';
+import { SalesAttachmentsPanel } from './SalesAttachmentsPanel';
 
 export function SalesQuotationsPanel({
+  workspaceId,
+  companyId,
   dealId,
   quotations,
   defaultCurrency,
   canEdit,
   onChange,
 }: {
+  workspaceId: string;
+  companyId: string;
   dealId: string;
   quotations: SalesQuotation[];
   defaultCurrency: string;
@@ -38,6 +44,28 @@ export function SalesQuotationsPanel({
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Which quotation's files are expanded, and how many each holds (for the
+  // badge shown while collapsed).
+  const [filesOpenId, setFilesOpenId] = useState<string | null>(null);
+  const [fileCounts, setFileCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    getQuotationFileCounts(dealId)
+      .then((counts) => {
+        if (!cancelled) setFileCounts(counts);
+      })
+      .catch(() => {
+        // The badge is a convenience; the panel still loads the real list on open.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [dealId]);
+
+  function adjustFileCount(quotationId: string, delta: number) {
+    setFileCounts((prev) => ({ ...prev, [quotationId]: Math.max(0, (prev[quotationId] ?? 0) + delta) }));
+  }
 
   function resetForm() {
     setQuoteNumber('');
@@ -174,14 +202,39 @@ export function SalesQuotationsPanel({
 
             {q.notes && <span className="w-full truncate text-[11px] text-gray-400">{q.notes}</span>}
 
+            <button
+              onClick={() => setFilesOpenId(filesOpenId === q.id ? null : q.id)}
+              title="Files (POs, signed quotes…)"
+              className={`ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] hover:bg-gray-100 ${
+                filesOpenId === q.id ? 'bg-gray-100 text-[#0073ea]' : 'text-gray-400'
+              }`}
+            >
+              <Paperclip size={12} />
+              {(fileCounts[q.id] ?? 0) > 0 ? fileCounts[q.id] : canEdit ? 'Attach' : null}
+            </button>
+
             {canEdit && (
               <button
                 onClick={() => handleDelete(q.id)}
                 title="Delete quotation"
-                className="ml-auto text-gray-300 hover:text-red-500"
+                className="text-gray-300 hover:text-red-500"
               >
                 <Trash2 size={12} />
               </button>
+            )}
+
+            {filesOpenId === q.id && (
+              <div className="w-full border-t border-gray-100 pt-2">
+                <SalesAttachmentsPanel
+                  workspaceId={workspaceId}
+                  companyId={companyId}
+                  dealId={dealId}
+                  quotationId={q.id}
+                  canEdit={canEdit}
+                  compact
+                  onCountChange={(delta) => adjustFileCount(q.id, delta)}
+                />
+              </div>
             )}
           </div>
         ))}

@@ -1,4 +1,4 @@
-import type { QuotationStatus, SalesActivityType, SalesStage } from '@/types/database';
+import type { QuotationStatus, SalesActivityType, SalesCostCategory, SalesStage } from '@/types/database';
 
 // The pipeline, in order. Must stay in sync with sales_deals.stage's check
 // constraint in supabase/migrations/0019_sales.sql — that constraint is the
@@ -63,6 +63,20 @@ export const QUOTATION_STATUSES: readonly { id: QuotationStatus; label: string; 
 
 export function quotationStatusColor(status: QuotationStatus): string {
   return QUOTATION_STATUSES.find((s) => s.id === status)?.color ?? '#c4c4c4';
+}
+
+export const COST_CATEGORIES: readonly { id: SalesCostCategory; label: string }[] = [
+  { id: 'materials', label: 'Materials' },
+  { id: 'labor', label: 'Labor' },
+  { id: 'subcontractor', label: 'Subcontractor' },
+  { id: 'equipment', label: 'Equipment' },
+  { id: 'transport', label: 'Transport' },
+  { id: 'overhead', label: 'Overhead' },
+  { id: 'other', label: 'Other' },
+] as const;
+
+export function costCategoryLabel(category: SalesCostCategory): string {
+  return COST_CATEGORIES.find((c) => c.id === category)?.label ?? category;
 }
 
 export const ACTIVITY_TYPES: readonly { id: SalesActivityType; label: string }[] = [

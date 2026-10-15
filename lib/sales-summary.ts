@@ -1,4 +1,4 @@
-import type { SalesCompanySummary, SalesDeal, SalesStage } from '@/types/database';
+import type { SalesCompanySummary, SalesDeal, SalesDealCost, SalesQuotation, SalesStage } from '@/types/database';
 import { DEFAULT_CURRENCY, isLostStage, isWonStage, SALES_STAGES } from '@/lib/sales-stages';
 
 // Pure roll-ups over an already-loaded deal list, mirroring how
@@ -116,4 +116,59 @@ export function groupDealsByStage(deals: SalesDeal[]): Record<SalesStage, SalesD
 
 export function sumDealValues(deals: SalesDeal[]): number {
   return deals.reduce((total, deal) => total + (deal.value ?? 0), 0);
+}
+
+// ============================================================================
+// Deal profit & loss
+// ============================================================================
+
+export interface DealProfitAndLoss {
+  revenue: number;
+  /** Where revenue came from, so the UI can say so rather than present a guess as fact. */
+  revenueSource: 'quotations' | 'deal_value' | 'none';
+  totalCost: number;
+  profit: number;
+  /** Profit as a share of revenue, 0-100; null when there is no revenue to divide by. */
+  marginPct: number | null;
+}
+
+/**
+ * Revenue is what the customer has agreed to pay: accepted quotations in the
+ * deal's currency. A quote that's been revised and re-accepted counts once,
+ * at its highest accepted revision, rather than every revision adding up.
+ * With nothing accepted yet it falls back to the deal's own value, so a deal
+ * still shows a (projected) margin before its quotation is signed off.
+ * Quotations in another currency are left out - there are no FX rates here.
+ */
+export function dealProfitAndLoss(
+  deal: Pick<SalesDeal, 'value' | 'currency'>,
+  quotations: SalesQuotation[],
+  costs: SalesDealCost[]
+): DealProfitAndLoss {
+  const latestAccepted = new Map<string, SalesQuotation>();
+  for (const q of quotations) {
+    if (q.status !== 'accepted' || q.currency !== deal.currency) continue;
+    const current = latestAccepted.get(q.quote_number);
+    if (!current || q.revision > current.revision) latestAccepted.set(q.quote_number, q);
+  }
+
+  let revenue = 0;
+  let revenueSource: DealProfitAndLoss['revenueSource'] = 'none';
+  if (latestAccepted.size > 0) {
+    for (const q of latestAccepted.values()) revenue += q.amount;
+    revenueSource = 'quotations';
+  } else if (deal.value != null) {
+    revenue = deal.value;
+    revenueSource = 'deal_value';
+  }
+
+  const totalCost = costs.reduce((sum, cost) => sum + cost.amount, 0);
+  const profit = revenue - totalCost;
+  return {
+    revenue,
+    revenueSource,
+    totalCost,
+    profit,
+    marginPct: revenue > 0 ? (profit / revenue) * 100 : null,
+  };
 }

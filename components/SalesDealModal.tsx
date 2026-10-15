@@ -9,6 +9,7 @@ import type {
   SalesCompany,
   SalesContact,
   SalesDeal,
+  SalesDealCost,
   SalesDealDetail,
   SalesQuotation,
   SalesSiteVisit,
@@ -19,7 +20,7 @@ import { CURRENCIES, DEFAULT_CURRENCY, isLostStage } from '@/lib/sales-stages';
 import { createSalesDeal, deleteSalesDeal, getDealDetail, updateSalesDeal } from '@/lib/sales-mutations';
 import { displayName } from '@/lib/avatar-color';
 import { Modal } from './ui/Modal';
-import { ConfirmDialog } from './ui/ConfirmDialog';
+import { SalesDeleteDealDialog } from './SalesDeleteDealDialog';
 import { Field, fieldInputClass } from './ui/Field';
 import { SalesStageSelect } from './SalesStageBadge';
 import { SalesCompanyCombobox } from './SalesCompanyCombobox';
@@ -27,10 +28,12 @@ import { SalesQuotationsPanel } from './SalesQuotationsPanel';
 import { SalesSiteVisitsPanel } from './SalesSiteVisitsPanel';
 import { SalesActivityPanel } from './SalesActivityPanel';
 import { SalesTasksPanel } from './SalesTasksPanel';
+import { SalesAttachmentsPanel } from './SalesAttachmentsPanel';
+import { SalesProfitLossPanel } from './SalesProfitLossPanel';
 
 const DEAL_SOURCES = ['Referral', 'Website', 'Walk-in', 'Tender / bid', 'Existing customer', 'Cold call', 'Exhibition'];
 
-const EMPTY_DETAIL: SalesDealDetail = { quotations: [], siteVisits: [], activities: [], tasks: [] };
+const EMPTY_DETAIL: SalesDealDetail = { quotations: [], siteVisits: [], activities: [], tasks: [], costs: [] };
 
 export function SalesDealModal({
   workspaceId,
@@ -179,6 +182,20 @@ export function SalesDealModal({
     onDeleted(savedDeal.id);
     onClose();
   }
+
+  // What goes down with the deal, shown in the delete confirmation. Counts
+  // come from the loaded detail; files are always listed since their count
+  // isn't loaded here.
+  const deleteContents = [
+    [detail.quotations.length, 'quotation'],
+    [detail.costs.length, 'cost line'],
+    [detail.siteVisits.length, 'site visit'],
+    [detail.tasks.length, 'task'],
+    [detail.activities.length, 'logged communication'],
+  ]
+    .filter(([count]) => (count as number) > 0)
+    .map(([count, noun]) => `${count} ${noun}${count === 1 ? '' : 's'}`)
+    .concat('All files attached to the deal and its quotations');
 
   function patchDetail(patch: Partial<SalesDealDetail>) {
     setDetail((prev) => ({ ...prev, ...patch }));
@@ -382,11 +399,21 @@ export function SalesDealModal({
             {detailLoading && <p className="text-xs text-gray-400">Loading deal history…</p>}
 
             <SalesQuotationsPanel
+              workspaceId={workspaceId}
+              companyId={savedDeal.company_id}
               dealId={savedDeal.id}
               quotations={detail.quotations}
               defaultCurrency={currency}
               canEdit={canEdit}
               onChange={(quotations: SalesQuotation[]) => patchDetail({ quotations })}
+            />
+
+            <SalesProfitLossPanel
+              deal={savedDeal}
+              quotations={detail.quotations}
+              costs={detail.costs}
+              canEdit={canEdit}
+              onChange={(costs: SalesDealCost[]) => patchDetail({ costs })}
             />
 
             <SalesSiteVisitsPanel
@@ -395,6 +422,13 @@ export function SalesDealModal({
               defaultAddress={company?.address ?? null}
               canEdit={canEdit}
               onChange={(siteVisits: SalesSiteVisit[]) => patchDetail({ siteVisits })}
+            />
+
+            <SalesAttachmentsPanel
+              workspaceId={workspaceId}
+              companyId={savedDeal.company_id}
+              dealId={savedDeal.id}
+              canEdit={canEdit}
             />
 
             <SalesTasksPanel
@@ -419,7 +453,7 @@ export function SalesDealModal({
           </div>
         ) : (
           <p className="rounded border border-dashed border-gray-200 px-3 py-3 text-center text-xs text-gray-400">
-            Save the deal to start logging quotations, site visits, tasks and communications against it.
+            Save the deal to start logging quotations, site visits, files, tasks and communications against it.
           </p>
         )}
 
@@ -453,10 +487,10 @@ export function SalesDealModal({
         </div>
       </div>
 
-      {confirmingDelete && (
-        <ConfirmDialog
-          title="Delete this deal?"
-          message="This permanently deletes the deal along with its quotations, site visits, tasks and logged communications."
+      {confirmingDelete && savedDeal && (
+        <SalesDeleteDealDialog
+          dealTitle={savedDeal.title}
+          contents={deleteContents}
           onConfirm={handleDelete}
           onCancel={() => setConfirmingDelete(false)}
         />

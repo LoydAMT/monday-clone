@@ -19,6 +19,7 @@ import { SalesStageBadge } from './SalesStageBadge';
 import { SalesContactsPanel } from './SalesContactsPanel';
 import { SalesTasksPanel } from './SalesTasksPanel';
 import { SalesActivityPanel } from './SalesActivityPanel';
+import { SalesAttachmentsPanel } from './SalesAttachmentsPanel';
 import { SalesCompanyModal } from './SalesCompanyModal';
 import { SalesDealModal } from './SalesDealModal';
 
@@ -60,6 +61,7 @@ export function SalesCompanyProfile({
   const [editingCompany, setEditingCompany] = useState(false);
   // undefined = closed, null = create mode, a deal = edit mode.
   const [activeDeal, setActiveDeal] = useState<SalesDeal | null | undefined>(undefined);
+  const [filesRefreshKey, setFilesRefreshKey] = useState(0);
 
   const myRole = members.find((m) => m.user_id === currentUserId)?.role;
   const canEdit = myRole !== 'viewer';
@@ -336,6 +338,20 @@ export function SalesCompanyProfile({
               </Card>
 
               <Card>
+                {/* Includes files attached to individual deals. The deal modal
+                    uploads and deletes through its own panel instance, so the
+                    key forces a refetch whenever that modal closes. */}
+                <SalesAttachmentsPanel
+                  key={filesRefreshKey}
+                  workspaceId={workspaceId}
+                  companyId={company.id}
+                  dealId={null}
+                  canEdit={canEdit}
+                  dealTitleById={dealTitleById}
+                />
+              </Card>
+
+              <Card>
                 <SalesActivityPanel
                   companyId={company.id}
                   // null so anything logged here is company-level correspondence
@@ -383,7 +399,10 @@ export function SalesCompanyProfile({
           canEdit={canEdit}
           defaultCompanyId={company.id}
           lockCompany
-          onClose={() => setActiveDeal(undefined)}
+          onClose={() => {
+            setActiveDeal(undefined);
+            setFilesRefreshKey((k) => k + 1);
+          }}
           onCreated={(created) => {
             setDeals((prev) => [created, ...prev]);
             setActiveDeal(created);
