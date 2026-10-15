@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Info, UserPlus } from 'lucide-react';
 import type { Board, BoardAccess, MemberProfile, WorkspaceFeature, WorkspaceRole } from '@/types/database';
-import { FEATURE_DESCRIPTIONS, FEATURE_LABELS, WORKSPACE_FEATURES } from '@/lib/permissions';
+import {
+  DEFAULT_WORKSPACE_FEATURES,
+  FEATURE_DESCRIPTIONS,
+  FEATURE_LABELS,
+  WORKSPACE_FEATURES,
+} from '@/lib/permissions';
 import {
   getBoardGrants,
   inviteMember,
@@ -43,7 +48,7 @@ export function MemberAccessModal({
   // Invites are member/viewer only, matching what the popover offered before —
   // promote to owner afterwards if that's really the intent.
   const [role, setRole] = useState<WorkspaceRole>(member?.role ?? 'member');
-  const [features, setFeatures] = useState<WorkspaceFeature[]>(member?.features ?? [...WORKSPACE_FEATURES]);
+  const [features, setFeatures] = useState<WorkspaceFeature[]>(member?.features ?? [...DEFAULT_WORKSPACE_FEATURES]);
   const [boardAccess, setBoardAccess] = useState<BoardAccess>(member?.board_access ?? 'all');
   const [grants, setGrants] = useState<string[]>([]);
   const [initialGrants, setInitialGrants] = useState<string[]>([]);

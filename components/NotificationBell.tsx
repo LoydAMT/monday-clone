@@ -21,6 +21,10 @@ function describeNotification(n: Notification): string {
       return `You were mentioned: "${stripMentionTokens(payload.body ?? '').slice(0, 60)}"`;
     case 'automation_notify':
       return `Automation: "${payload.item_title}" ${payload.column_name} is now "${payload.status_value}"`;
+    case 'internal_sales_deal_assigned':
+      return `You now own the internal deal "${payload.deal_title}"`;
+    case 'internal_sales_task_assigned':
+      return `Internal sales task assigned: "${payload.task_title}"`;
     case 'sales_deal_assigned':
       return `You now own the deal "${payload.deal_title}"`;
     case 'sales_task_assigned':
@@ -39,8 +43,10 @@ function notificationHref(n: Notification): string | null {
   // `?deal=` param SalesPipelineView reads), or to the company profile when
   // the task isn't tied to a deal.
   if (payload.workspace_id) {
-    if (payload.deal_id) return `/sales/${payload.workspace_id}?deal=${payload.deal_id}`;
-    if (payload.company_id) return `/sales/${payload.workspace_id}/companies/${payload.company_id}`;
+    // Internal Sales is a separate module under its own route.
+    const base = n.type.startsWith('internal_sales_') ? 'internal-sales' : 'sales';
+    if (payload.deal_id) return `/${base}/${payload.workspace_id}?deal=${payload.deal_id}`;
+    if (payload.company_id) return `/${base}/${payload.workspace_id}/companies/${payload.company_id}`;
   }
   return null;
 }

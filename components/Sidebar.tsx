@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname, useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Clock, Copy, Handshake, LayoutGrid, Menu, MoreHorizontal, Package, Plus, LogOut, SlidersHorizontal, Trash2, UserPlus, X } from 'lucide-react';
+import { Briefcase, ChevronDown, ChevronRight, Clock, Copy, Handshake, LayoutGrid, Menu, MoreHorizontal, Package, Plus, LogOut, SlidersHorizontal, Trash2, UserPlus, X } from 'lucide-react';
 import type { MemberProfile } from '@/types/database';
 import type { WorkspaceWithBoards } from '@/lib/queries';
 import {
@@ -14,7 +14,7 @@ import {
   removeMember,
 } from '@/lib/mutations';
 import { BOARD_TEMPLATES } from '@/lib/templates';
-import { WORKSPACE_FEATURES, hasFeature, roleLabel } from '@/lib/permissions';
+import { DEFAULT_WORKSPACE_FEATURES, hasFeature, roleLabel } from '@/lib/permissions';
 import { avatarColor, displayName, initials } from '@/lib/avatar-color';
 import { MemberAccessModal } from './MemberAccessModal';
 import { ConfirmDialog } from './ui/ConfirmDialog';
@@ -125,6 +125,7 @@ export function Sidebar({
             const showInventory = hasFeature(myMembership, 'inventory');
             const showAttendance = hasFeature(myMembership, 'attendance');
             const showSales = hasFeature(myMembership, 'sales');
+            const showInternalSales = hasFeature(myMembership, 'internal_sales');
             return (
               <div key={workspace.id} className="mb-3">
                 <div className="flex items-center gap-1 pr-1">
@@ -185,6 +186,21 @@ export function Sidebar({
                       >
                         <Handshake size={14} />
                         Sales
+                      </Link>
+                    )}
+
+                    {showInternalSales && (
+                      <Link
+                        href={`/internal-sales/${workspace.id}`}
+                        onClick={() => setMobileOpen(false)}
+                        className={`mb-0.5 flex items-center gap-1.5 rounded px-2 py-1.5 text-sm ${
+                          pathname.startsWith(`/internal-sales/${workspace.id}`)
+                            ? 'bg-[#e6f1fd] font-medium text-[#0073ea]'
+                            : 'text-gray-700 hover:bg-gray-200/60'
+                        }`}
+                      >
+                        <Briefcase size={14} />
+                        Internal Sales
                       </Link>
                     )}
 
@@ -316,7 +332,7 @@ function MembersPopover({
               // members and viewers — see can_access_board / can_view_module.
               const limited =
                 m.role !== 'owner' &&
-                (m.board_access !== 'all' || m.features.length < WORKSPACE_FEATURES.length);
+                (m.board_access !== 'all' || DEFAULT_WORKSPACE_FEATURES.some((f) => !m.features.includes(f)));
               return (
                 <div key={m.user_id} className="flex items-center gap-2 rounded px-1 py-1">
                   <span

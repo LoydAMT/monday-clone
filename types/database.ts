@@ -428,7 +428,7 @@ export type WorkspaceRole = 'owner' | 'member' | 'viewer';
 
 // Which standalone modules a member may reach. Mirrors
 // workspace_members.features' check constraint; see lib/permissions.ts.
-export type WorkspaceFeature = 'boards' | 'inventory' | 'attendance' | 'sales';
+export type WorkspaceFeature = 'boards' | 'inventory' | 'attendance' | 'sales' | 'internal_sales';
 
 // 'all' = every board in the workspace (the default, and how every member
 // behaved before migration 0020). 'selected' = only boards granted through

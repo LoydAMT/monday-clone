@@ -9,13 +9,23 @@ export const WORKSPACE_FEATURES: readonly WorkspaceFeature[] = [
   'inventory',
   'attendance',
   'sales',
+  'internal_sales',
 ] as const;
+
+// What a new member gets ticked by default. Internal Sales is deliberately
+// left out: it is a separate, private copy of Sales that only workspace
+// owners see until an owner grants it to someone — see
+// 0025_internal_sales.sql, whose features default omits it for the same reason.
+export const DEFAULT_WORKSPACE_FEATURES: readonly WorkspaceFeature[] = WORKSPACE_FEATURES.filter(
+  (f) => f !== 'internal_sales'
+);
 
 export const FEATURE_LABELS: Record<WorkspaceFeature, string> = {
   boards: 'Boards',
   inventory: 'Inventory',
   attendance: 'Attendance',
   sales: 'Sales',
+  internal_sales: 'Internal Sales',
 };
 
 export const FEATURE_DESCRIPTIONS: Record<WorkspaceFeature, string> = {
@@ -23,6 +33,7 @@ export const FEATURE_DESCRIPTIONS: Record<WorkspaceFeature, string> = {
   inventory: 'Stock levels, locations and adjustments',
   attendance: 'Clock in/out records',
   sales: 'Customers, deals, quotations and the pipeline',
+  internal_sales: 'Separate private copy of Sales (owners only unless granted)',
 };
 
 /**
