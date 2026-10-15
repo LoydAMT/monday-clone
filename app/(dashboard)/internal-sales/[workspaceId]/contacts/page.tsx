@@ -27,7 +27,7 @@ export default async function InternalSalesContactsPage({ params }: { params: Pr
   if (!session) redirect('/login');
   if (!workspace) notFound();
   // Same 404-over-empty-module reasoning as the companies page.
-  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'sales')) notFound();
+  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'internal_sales')) notFound();
 
   return (
     <InternalSalesContactsView

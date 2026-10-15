@@ -28,7 +28,7 @@ export default async function InternalSalesPipelinePage({ params }: { params: Pr
   if (!workspace) notFound();
   // RLS already returns nothing to a member without the sales feature, so
   // this is about showing a 404 instead of a convincingly empty module.
-  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'sales')) notFound();
+  if (!hasFeature(members.find((m) => m.user_id === session.user.id), 'internal_sales')) notFound();
 
   return (
     <InternalSalesPipelineView
